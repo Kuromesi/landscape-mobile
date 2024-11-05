@@ -3,6 +3,7 @@ import 'package:landscape/players/gif.dart';
 import 'package:landscape/players/scroll_text.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:landscape/players/error.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(MyApp());
@@ -27,7 +28,6 @@ class Landscape extends StatefulWidget {
   _LandscapeState createState() => _LandscapeState();
 }
 
-
 List<Widget> _pages = [ErrorPage(), GifPage(), ScrollTextPage()];
 
 Map<String, int> _pagesMap = {
@@ -38,19 +38,49 @@ Map<String, int> _pagesMap = {
 class _LandscapeState extends State<Landscape> {
   bool _isDarkTheme = false;
   bool _keepScreenOn = false;
-  int pageIndex = 1;
-  PageController _pageController = PageController();
+  int _pageIndex = 1;
+  PageController _pageController = PageController(initialPage: 1);
+  final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
+
+  @override
+  void initState() {
+    _loadPreferences();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _savePreferences();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPreferences() async {
+    _isDarkTheme = await _prefs.getBool('isDarkTheme') ?? false;
+    _keepScreenOn = await _prefs.getBool('keepScreenOn') ?? false;
+    setState(() {
+      _isDarkTheme = _isDarkTheme;
+      _keepScreenOn = _keepScreenOn;
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("isDarkTheme", _isDarkTheme);
+    await prefs.setBool("keepScreenOn", _keepScreenOn);
+  }
 
   void _toggleTheme() {
     setState(() {
       _isDarkTheme = !_isDarkTheme;
     });
+    _prefs.setBool("isDarkTheme", _isDarkTheme);
   }
 
   void _showPage(String page) {
     setState(() {
-      pageIndex = _pagesMap[page] ?? 0;
-      _pageController.jumpToPage(pageIndex);
+      _pageIndex = _pagesMap[page] ?? 0;
+      _pageController.jumpToPage(_pageIndex);
     });
   }
 
@@ -65,12 +95,6 @@ class _LandscapeState extends State<Landscape> {
       duration: const Duration(seconds: 2),
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  }
-
-  @override
-  void initState() {
-    _pageController = PageController(initialPage: pageIndex);
-    super.initState();
   }
 
   @override
