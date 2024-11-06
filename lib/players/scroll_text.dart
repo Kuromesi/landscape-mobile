@@ -91,6 +91,9 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                         innerSetState(() {
                           _text = value;
                         });
+                        setState(() {
+                          _text = _text;
+                        });
                       },
                     ),
                     DropdownButtonFormField<TextDirection>(
