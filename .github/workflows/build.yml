@@ -1,9 +1,6 @@
 name: "Build"
 
 on:
-  pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
@@ -29,7 +26,6 @@ jobs:
       - name: Set Up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version-file: pubspec.yaml
           channel: 'stable'
 
       - run: flutter --version
