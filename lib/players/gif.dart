@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:gif_view/gif_view.dart';
+import 'package:flutter/services.dart';
 
 class GifPage extends StatefulWidget {
   @override
@@ -70,6 +72,16 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                 [],
           ));
         }));
+  }
+
+  void _playGifs() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            GifPlayer(gifs: _files?.map((e) => e.path!).toList() ?? []),
+      ),
+    );
   }
 
   Future<void> _pickFiles() async {
@@ -141,7 +153,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         child: Text('Play Gifs'),
                         onPressed: () {
                           Navigator.of(context).pop();
-                          print('Loading files...');
+                          _playGifs();
                         },
                       ),
                     ),
@@ -164,5 +176,71 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
         );
       },
     );
+  }
+}
+
+class GifPlayer extends StatefulWidget {
+  final List<String> gifs;
+
+  GifPlayer({Key? key, required this.gifs}) : super(key: key);
+
+  @override
+  State<GifPlayer> createState() => _GifPlayerState();
+}
+
+class _GifPlayerState extends State<GifPlayer> {
+  late List<GifController> _gifControllerList;
+  List<GifView> _gifs = [];
+  int _currentGif = 0;
+
+  @override
+  void initState() {
+    _gifControllerList = List.generate(
+      widget.gifs.length,
+      (index) => GifController(
+        onFinish: () {
+          if (!mounted) return;
+          setState(
+            () {
+              _currentGif = (_currentGif + 1) % widget.gifs.length;
+            },
+          );
+        },
+        loop: false,
+      ),
+    );
+
+    for (int i = 0; i < widget.gifs.length; i++) {
+      _gifs.add(
+        GifView(
+          image: FileImage(
+            File(widget.gifs[i]),
+          ),
+          controller: _gifControllerList[i],
+          fit: BoxFit.fitWidth,
+          repeat: ImageRepeat.noRepeat,
+        ),
+      );
+    }
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
+    return Scaffold(
+        body: GestureDetector(
+      onTap: () {
+        Navigator.pop(
+          context,
+        );
+      },
+      child: Container(
+          key: ValueKey<int>(_currentGif),
+          child: _gifs[_currentGif],
+          width: double.infinity,
+          height: double.infinity,
+        ),
+    ));
   }
 }
