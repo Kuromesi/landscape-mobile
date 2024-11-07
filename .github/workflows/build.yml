@@ -7,23 +7,9 @@ on:
   #   branches: [ workflow-test ]
 
 jobs:  
-  check-label:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Check if the PR has the release label
-          id: check
-          run: |
-            labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
-            echo $labels
-            if [[ "$labels" == *"release"* ]]; then
-              echo "Release label found!"
-              echo "::set-output name=has_release_label::true"
-            else
-              echo "::set-output name=has_release_label::false"
-            fi
   build:
-    needs: check-label
-    if: ${{ needs.check-label.outputs.has_release_label == 'true' }}      
+    if: contains(github.event.pull_request.labels.*.name, 'release')
+    # if: github.event.pull_request.merged == true
     name: Build & Release 
     runs-on: ubuntu-latest
     steps:
