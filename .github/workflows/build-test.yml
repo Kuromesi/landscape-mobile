@@ -6,7 +6,7 @@ on:
 
 jobs:  
   build:
-    if: contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, '/build-test')
+    if: contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, '/build-test') && ${{ github.event.comment.user.login }} == "Kuromesi"
     name: Build Test
     runs-on: ubuntu-latest
     steps:
