@@ -1,13 +1,29 @@
 name: "Build"
 
 on:
-  # pull_request:
-  #   types: [ closed ]
-  push:
-    branches: [ workflow-test ]
+  pull_request:
+    types: [ labeled ]
+  # push:
+  #   branches: [ workflow-test ]
 
 jobs:  
-  build:      
+  check-label:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Check if the PR has the release label
+          id: check
+          run: |
+            labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+            echo $labels
+            if [[ "$labels" == *"release"* ]]; then
+              echo "Release label found!"
+              echo "::set-output name=has_release_label::true"
+            else
+              echo "::set-output name=has_release_label::false"
+            fi
+  build:
+    needs: check-label
+    if: ${{ needs.check-label.outputs.has_release_label == 'true' }}      
     name: Build & Release 
     runs-on: ubuntu-latest
     steps:
