@@ -38,7 +38,6 @@ jobs:
       - name: Echo pubspec.yaml
         run: |
           cat pubspec.yaml
-          echo v${{ env.VERSION }}
 
       - name: Build APK
         run: flutter build apk --release

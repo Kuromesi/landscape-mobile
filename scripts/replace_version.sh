@@ -10,7 +10,7 @@ IFS='.' read -r major minor patch <<< "$version"
 
 next_patch=$((patch + 1))
 
-new_version_no_build="v$major.$minor.$next_patch"
+new_version_no_build="$major.$minor.$next_patch"
 
 new_version_with_build="$new_version_no_build+$base_increment"
 
