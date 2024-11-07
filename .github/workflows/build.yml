@@ -1,28 +1,26 @@
 name: "Build"
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    types: [ closed ]
 
 jobs:  
-  build:      
+  build:
+    if: contains(github.event.pull_request.labels.*.name, 'release') && github.event.pull_request.merged == true
     name: Build & Release 
     runs-on: ubuntu-latest
-
     steps:
-        #1 Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-        #2 Setup Java
       - name: Set Up Java
         uses: actions/setup-java@v3.12.0
         with:
           distribution: 'oracle'
           java-version: '17'
 
-        #3 Setup Flutter
       - name: Set Up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -30,11 +28,13 @@ jobs:
 
       - run: flutter --version
 
-        #4 Install Dependencies
       - name: Install Dependencies
         run: flutter pub get
 
-        #5 Setup Keystore
+      - name: Decide Release Version
+        run: |
+          bash scripts/replace_version.sh
+        
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -46,44 +46,21 @@ jobs:
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=keystore.jks" >> android/key.properties
         
-       #6 Building APK
+      - name: Echo pubspec.yaml
+        run: |
+          cat pubspec.yaml
+          echo v${{ env.VERSION }}
+
       - name: Build APK
         run: flutter build apk --release
 
-        #7 Upload Artifacts
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Releases
           path: |
             build/app/outputs/flutter-apk/app-release.apk
-
-        #8 Extract Version
-      - name: Extract version from pubspec.yaml
-        id: extract_version
-        run: |
-          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r')
-          echo "VERSION=$version" >> $GITHUB_ENV
-
-        #9 Check if Tag Exists
-      - name: Check if Tag Exists
-        id: check_tag
-        run: |
-          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
-            echo "TAG_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "TAG_EXISTS=false" >> $GITHUB_ENV
-          fi
-
-        #10 Modify Tag if it Exists
-      - name: Modify Tag
-        if: env.TAG_EXISTS == 'true'
-        id: modify_tag
-        run: |
-          new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
-          echo "VERSION=$new_version" >> $GITHUB_ENV
         
-        #11 Create Release
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
