@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # - name: Set Up Java
       #   uses: actions/setup-java@v3.12.0
@@ -50,7 +52,7 @@ jobs:
       
       - name: Debug
         run: |
-          cat pubsec.yaml
+          cat pubspec.yaml
           echo v${{ env.VERSION }}
 
       # - name: Upload Artifacts
