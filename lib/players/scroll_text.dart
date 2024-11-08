@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:flutter/material.dart';
 import 'package:text_scroll/text_scroll.dart';
 import 'package:landscape/utils/utils.dart';

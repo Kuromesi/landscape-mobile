@@ -2,10 +2,11 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:landscape/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gif_view/gif_view.dart';
-import 'package:flutter/services.dart';
+import 'package:landscape/logs/notify.dart';
+
+const double optionsBarWidth = 0.5;
 
 class GifPage extends StatefulWidget {
   @override
@@ -16,8 +17,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  List<PlatformFile>? _files = [];
-  List<String> _fileNames = [];
+  List<String> _filePaths = [];
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
   @override
@@ -34,14 +34,55 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadPreferences() async {
-    _fileNames = await _prefs.getStringList("files") ?? [];
+    _filePaths = await _prefs.getStringList("files") ?? [];
     setState(() {
-      _fileNames = _fileNames;
+      _filePaths = _filePaths;
     });
   }
 
   Future<void> _savePreferences() async {
-    _prefs.setStringList("files", _fileNames);
+    _prefs.setStringList("files", _filePaths);
+  }
+
+  Future<void> _resetPreferences() async {
+    _prefs.setStringList("files", []);
+  }
+
+  GestureDetector _imagePreviewWrapper(
+      Image image, String path, BuildContext context) {
+    GestureDetector gd = GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pop(
+                      context,
+                    );
+                  },
+                  child: Container(
+                    child: image,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      onDoubleTap: () {
+        _filePaths.remove(path);
+        setState(() {
+          _filePaths = _filePaths;
+        });
+      },
+      child: image,
+    );
+    return gd;
   }
 
   @override
@@ -52,7 +93,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
         floatingActionButton: FloatingActionButton(
           onPressed: () =>
               // {_pickFiles(), FilePicker.platform.clearTemporaryFiles()},
-              {_showSettingsDialog()},
+              {_showSettingsDialog(context)},
           child: Icon(Icons.add),
         ),
         body: OrientationBuilder(builder: (context, orientation) {
@@ -61,31 +102,43 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
             scrollDirection: orientation == Orientation.landscape
                 ? Axis.horizontal
                 : Axis.vertical,
-            children: _fileNames
-                    .map((e) => FullScreenWrapper.wrap(
-                        Image.file(
-                          File(e),
-                          fit: BoxFit.fitWidth,
-                        ),
-                        context))
-                    .toList() ??
-                [],
+            children: _buildImagesPreview(_filePaths, context),
           ));
         }));
   }
 
-  void _playGifs() {
+  List<Widget> _buildImagesPreview(
+      List<String> _filePaths, BuildContext context) {
+    List<GestureDetector> images = [];
+    List<String> filePaths = _filePaths.toList();
+    for (String e in filePaths) {
+      if (!File(e).existsSync()) {
+        notify(context, "File not found: $e");
+        _filePaths.remove(e);
+        continue;
+      }
+      Image image = Image.file(
+        File(e),
+        fit: BoxFit.fitWidth,
+      );
+      GestureDetector gd = _imagePreviewWrapper(image, e, context);
+      images.add(gd);
+    }
+    _prefs.setStringList("files", _filePaths);
+    return images;
+  }
+
+  void _playGifs(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            GifPlayer(gifs: _files?.map((e) => e.path!).toList() ?? []),
+        builder: (context) => GifPlayer(gifs: _filePaths),
       ),
     );
   }
 
-  Future<void> _pickFiles() async {
-    _files = (await FilePicker.platform.pickFiles(
+  void _pickFiles() async {
+    List<PlatformFile>? files = (await FilePicker.platform.pickFiles(
       compressionQuality: 30,
       type: FileType.custom,
       allowMultiple: true,
@@ -95,20 +148,20 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     ))
         ?.files;
 
-    _fileNames = [];
-    if (_files != null) {
-      for (var file in _files!) {
-        if (file.path != null) {
-          _fileNames.add(file.path!);
-        }
-      }
+    // filter empty files
+    if (files == null) {
+      return;
     }
+
+    files = files.where((element) => element.path != null).toList();
+    List<String> paths = files.map((e) => e.path!).toList();
+    paths.insertAll(0, _filePaths);
     setState(() {
-      _fileNames = _fileNames;
+      _filePaths = paths;
     });
   }
 
-  void _showSettingsDialog() {
+  void _showSettingsDialog(BuildContext context) {
     showModalBottomSheet(
       // fix when using keyboard this panel will be hided
       isScrollControlled: true,
@@ -126,7 +179,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                   children: [
                     SizedBox(
                       width:
-                          MediaQuery.of(context).size.width * 0.75,
+                          MediaQuery.of(context).size.width * optionsBarWidth,
                       child: ElevatedButton(
                         child: Text('Load Files'),
                         onPressed: () {
@@ -137,33 +190,38 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                     ),
                     SizedBox(
                       width:
-                          MediaQuery.of(context).size.width * 0.75,
+                          MediaQuery.of(context).size.width * optionsBarWidth,
                       child: ElevatedButton(
-                        child: Text('Clear Cached Files'),
+                        child: Text('Clear All'),
                         onPressed: () {
                           FilePicker.platform.clearTemporaryFiles();
+                          setState(() {
+                            _filePaths = [];
+                          });
+                          _resetPreferences();
                           Navigator.of(context).pop();
                         },
                       ),
                     ),
                     SizedBox(
                       width:
-                          MediaQuery.of(context).size.width * 0.75,
+                          MediaQuery.of(context).size.width * optionsBarWidth,
                       child: ElevatedButton(
                         child: Text('Play Gifs'),
                         onPressed: () {
                           Navigator.of(context).pop();
-                          _playGifs();
+                          _playGifs(context);
                         },
                       ),
                     ),
                     SizedBox(
                       width:
-                          MediaQuery.of(context).size.width * 0.75,
+                          MediaQuery.of(context).size.width * optionsBarWidth,
                       child: ElevatedButton(
                         child: Text('Save Settings'),
                         onPressed: () {
                           _savePreferences();
+                          notify(context, "Settings Saved");
                           Navigator.of(context).pop();
                         },
                       ),
@@ -190,57 +248,80 @@ class GifPlayer extends StatefulWidget {
 
 class _GifPlayerState extends State<GifPlayer> {
   late List<GifController> _gifControllerList;
-  List<GifView> _gifs = [];
+  final List<GifView> _gifs = [];
   int _currentGif = 0;
+  int _frameRate = 10;
+  Duration _mustPlayAfter = Duration(seconds: 0);
+  bool _next = true;
 
+  late DateTime _startTime;
   @override
   void initState() {
-    _gifControllerList = List.generate(
-      widget.gifs.length,
-      (index) => GifController(
-        onFinish: () {
-          if (!mounted) return;
-          setState(
-            () {
-              _currentGif = (_currentGif + 1) % widget.gifs.length;
-            },
-          );
-        },
-        loop: false,
-      ),
-    );
-
+    _gifControllerList = [];
     for (int i = 0; i < widget.gifs.length; i++) {
-      _gifs.add(
-        GifView(
-          image: FileImage(
-            File(widget.gifs[i]),
+      try {
+        FileImage image = FileImage(
+          File(widget.gifs[i]),
+        );
+        GifController controller = GifController(
+          onStart: () {
+            if (_next) {
+              _startTime = DateTime.now();
+              _next = false;
+            }
+          },
+          onFinish: () {
+            if (DateTime.now().difference(_startTime) < _mustPlayAfter) {
+              // start controller
+              _gifControllerList[_currentGif].play();
+              return;
+            }
+            if (!mounted) return;
+            _next = true;
+            setState(
+              () {
+                _currentGif = (_currentGif + 1) % _gifs.length;
+              },
+            );
+          },
+          loop: false,
+        );
+        _gifs.add(
+          GifView(
+            image: image,
+            controller: controller,
+            fit: BoxFit.fitWidth,
+            repeat: ImageRepeat.noRepeat,
+            frameRate: _frameRate,
           ),
-          controller: _gifControllerList[i],
-          fit: BoxFit.fitWidth,
-          repeat: ImageRepeat.noRepeat,
-        ),
-      );
+        );
+        _gifControllerList.add(controller);
+      } catch (e) {
+        print(e);
+      }
     }
     super.initState();
   }
 
+ // TODO: animation
   @override
   Widget build(BuildContext context) {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     return Scaffold(
-        body: GestureDetector(
-      onTap: () {
-        Navigator.pop(
-          context,
-        );
-      },
-      child: Container(
-          key: ValueKey<int>(_currentGif),
-          child: _gifs[_currentGif],
-          width: double.infinity,
-          height: double.infinity,
-        ),
-    ));
+      body: GestureDetector(
+        onTap: () {
+          Navigator.pop(
+            context,
+          );
+        },
+        child: _gifs.length != 0
+            ? Container(
+                key: ValueKey<int>(_currentGif),
+                width: double.infinity,
+                height: double.infinity,
+                child: _gifs[_currentGif],
+              )
+            : Container(),
+      ),
+    );
   }
 }
