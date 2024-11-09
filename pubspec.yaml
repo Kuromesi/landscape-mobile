@@ -40,6 +40,10 @@ dependencies:
   shared_preferences: ^2.3.2
   upgrader: ^11.3.0
   http: ^1.2.2
+  json_annotation: ^4.9.0
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
+  provider: ^6.0.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -48,6 +52,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  build_runner: ^2.4.6
+  json_serializable: ^6.8.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

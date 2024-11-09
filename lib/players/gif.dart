@@ -103,7 +103,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
             FloatingActionButton(
               heroTag: "settings",
               onPressed: () => {_showSettingsDialog(context)},
-              child: Icon(Icons.add),
+              child: Icon(Icons.menu),
             ),
           ],
         ),
@@ -248,6 +248,10 @@ class _GifPlayerState extends State<GifPlayer> {
   }
 
   void _createMergedGifs() async {
+    if (widget.gifs.isEmpty) {
+      _status = "No gifs selected";
+      return;
+    }
     List<GifFrame> frames = [];
     GifReader r = GifReader();
 

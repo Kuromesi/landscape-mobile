@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:landscape/remote/http.dart';
 import 'package:text_scroll/text_scroll.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
-String defaultScrollText =
-    'Hey! I\'m a RTL text, check me out. Hey! I\'m a RTL text, check me out. Hey! I\'m a RTL text, check me out. ';
+String defaultScrollText = 'ALL STUDY NO PLAY MAKES JACK A DUMB BOY';
 
 class ScrollTextPage extends StatefulWidget {
   @override
@@ -214,13 +217,13 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      body: FullScreenWrapper.wrap(
-          Center(
-            child: Container(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  TextScroll(
+          body: FullScreenWrapper.wrap(
+              Center(
+                child: Container(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      TextScroll(
                     _text,
                     textDirection: _textDirection,
                     style: TextStyle(

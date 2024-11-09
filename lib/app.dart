@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:landscape/players/gif.dart';
 import 'package:landscape/players/scroll_text.dart';
+import 'package:landscape/remote/http.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:landscape/players/error.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,11 +27,12 @@ class Landscape extends StatefulWidget {
   _LandscapeState createState() => _LandscapeState();
 }
 
-List<Widget> _pages = [ErrorPage(), GifPage(), ScrollTextPage()];
+List<Widget> _pages = [ErrorPage(), GifPage(), ScrollTextPage(), RemoteHttpServerPage()];
 
 Map<String, int> _pagesMap = {
   'GIF': 1,
   'Scroll Text': 2,
+  "Remote HTTP Server": 3,
 };
 
 class _LandscapeState extends State<Landscape> {
@@ -145,6 +147,12 @@ class _LandscapeState extends State<Landscape> {
                 title: const Text('Scroll Text'),
                 onTap: () {
                   _showPage("Scroll Text");
+                },
+              ),
+              ListTile(
+                title: const Text('Remote HTTP Server'),
+                onTap: () {
+                  _showPage("Remote HTTP Server");
                 },
               ),
             ],
