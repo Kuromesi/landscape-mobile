@@ -1,0 +1,1 @@
+This is a copy from https://github.com/RafaelBarbosatec/gif_view and modified by @Kuromesi.

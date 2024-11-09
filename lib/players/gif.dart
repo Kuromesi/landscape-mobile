@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:landscape/gif_view/src/gif_frame.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gif_view/gif_view.dart';
-import 'package:landscape/logs/notify.dart';
+import 'package:landscape/gif_view/gif_view.dart';
+import 'package:landscape/players/gif_reader.dart';
+import 'package:landscape/gif_view/my_gif_view.dart';
 
-const double optionsBarWidth = 0.5;
+const double optionsBarWidth = 0.6;
 
 class GifPage extends StatefulWidget {
   @override
@@ -28,7 +30,6 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
 
   @override
   void dispose() {
-    FilePicker.platform.clearTemporaryFiles();
     _savePreferences();
     super.dispose();
   }
@@ -90,11 +91,21 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     super.build(context);
     return Scaffold(
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        floatingActionButton: FloatingActionButton(
-          onPressed: () =>
-              // {_pickFiles(), FilePicker.platform.clearTemporaryFiles()},
-              {_showSettingsDialog(context)},
-          child: Icon(Icons.add),
+        floatingActionButton: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton(
+              heroTag: "play_gif",
+              onPressed: () => {_playGifs(context)},
+              child: Icon(Icons.play_arrow),
+            ),
+            SizedBox(height: 16),
+            FloatingActionButton(
+              heroTag: "settings",
+              onPressed: () => {_showSettingsDialog(context)},
+              child: Icon(Icons.add),
+            ),
+          ],
         ),
         body: OrientationBuilder(builder: (context, orientation) {
           return Center(
@@ -113,7 +124,6 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     List<String> filePaths = _filePaths.toList();
     for (String e in filePaths) {
       if (!File(e).existsSync()) {
-        notify(context, "File not found: $e");
         _filePaths.remove(e);
         continue;
       }
@@ -159,6 +169,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     setState(() {
       _filePaths = paths;
     });
+    _savePreferences();
   }
 
   void _showSettingsDialog(BuildContext context) {
@@ -203,29 +214,6 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         },
                       ),
                     ),
-                    SizedBox(
-                      width:
-                          MediaQuery.of(context).size.width * optionsBarWidth,
-                      child: ElevatedButton(
-                        child: Text('Play Gifs'),
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          _playGifs(context);
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      width:
-                          MediaQuery.of(context).size.width * optionsBarWidth,
-                      child: ElevatedButton(
-                        child: Text('Save Settings'),
-                        onPressed: () {
-                          _savePreferences();
-                          notify(context, "Settings Saved");
-                          Navigator.of(context).pop();
-                        },
-                      ),
-                    ),
                   ],
                 ),
               );
@@ -247,63 +235,48 @@ class GifPlayer extends StatefulWidget {
 }
 
 class _GifPlayerState extends State<GifPlayer> {
-  late List<GifController> _gifControllerList;
-  final List<GifView> _gifs = [];
-  int _currentGif = 0;
+  late GifController _gifController;
+  late MyGifView _gif;
   int _frameRate = 10;
-  Duration _mustPlayAfter = Duration(seconds: 0);
-  bool _next = true;
+  bool _loading = true;
+  String _status = "Loading...";
 
-  late DateTime _startTime;
   @override
   void initState() {
-    _gifControllerList = [];
-    for (int i = 0; i < widget.gifs.length; i++) {
+    super.initState();
+    _createMergedGifs();
+  }
+
+  void _createMergedGifs() async {
+    List<GifFrame> frames = [];
+    GifReader r = GifReader();
+
+    for (String gif in widget.gifs) {
       try {
         FileImage image = FileImage(
-          File(widget.gifs[i]),
+          File(gif),
         );
-        GifController controller = GifController(
-          onStart: () {
-            if (_next) {
-              _startTime = DateTime.now();
-              _next = false;
-            }
-          },
-          onFinish: () {
-            if (DateTime.now().difference(_startTime) < _mustPlayAfter) {
-              // start controller
-              _gifControllerList[_currentGif].play();
-              return;
-            }
-            if (!mounted) return;
-            _next = true;
-            setState(
-              () {
-                _currentGif = (_currentGif + 1) % _gifs.length;
-              },
-            );
-          },
-          loop: false,
-        );
-        _gifs.add(
-          GifView(
-            image: image,
-            controller: controller,
-            fit: BoxFit.fitWidth,
-            repeat: ImageRepeat.noRepeat,
-            frameRate: _frameRate,
-          ),
-        );
-        _gifControllerList.add(controller);
+        List<GifFrame> t = await r.getFrames(image);
+        frames.addAll(t);
       } catch (e) {
+        _status = e.toString();
         print(e);
       }
     }
-    super.initState();
+    _gifController = GifController(loop: true, autoPlay: true);
+    _gifController.configure(frames);
+    _gif = MyGifView(
+      controller: _gifController,
+      fit: BoxFit.fitWidth,
+      frameRate: _frameRate,
+    );
+    setState(() {
+      _loading = false;
+      _gif = _gif;
+      _gifController = _gifController;
+    });
   }
 
- // TODO: animation
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -313,14 +286,16 @@ class _GifPlayerState extends State<GifPlayer> {
             context,
           );
         },
-        child: _gifs.length != 0
+        child: _loading
             ? Container(
-                key: ValueKey<int>(_currentGif),
+                child: Center(
+                child: Text(_status),
+              ))
+            : Container(
                 width: double.infinity,
                 height: double.infinity,
-                child: _gifs[_currentGif],
-              )
-            : Container(),
+                child: _gif,
+              ),
       ),
     );
   }
