@@ -1,6 +1,6 @@
 #!/bin/bash
 
-last_release=$(git describe --tags --abbrev=0)
+last_release="$(git describe --tags --abbrev=0)+1"
 
 version_without_v="${last_release#v}"
 
