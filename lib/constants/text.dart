@@ -1,0 +1,1 @@
+String defaultScrollText = 'ALL STUDY NO PLAY MAKES JACK A DUMB BOY';

@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:landscape/players/gif.dart';
 import 'package:landscape/players/scroll_text.dart';
+import 'package:landscape/remote/http.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:landscape/players/error.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:landscape/notifiers/notifier.dart';
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    notifier = Provider.of<ScrollTextNotifier>(context, listen: false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     return MaterialApp(
       title: 'Landscape',
@@ -26,17 +30,23 @@ class Landscape extends StatefulWidget {
   _LandscapeState createState() => _LandscapeState();
 }
 
-List<Widget> _pages = [ErrorPage(), GifPage(), ScrollTextPage()];
-
 Map<String, int> _pagesMap = {
-  'GIF': 1,
-  'Scroll Text': 2,
+  '/gif': 1,
+  '/scroll-text': 2,
+  "/remote-http": 3,
 };
 
 class _LandscapeState extends State<Landscape> {
   bool _isDarkTheme = false;
   bool _keepScreenOn = false;
   int _pageIndex = 1;
+  final List<Widget> _pages = [
+    ErrorPage(),
+    GifPage(),
+    ScrollTextPage(),
+    RemoteHttpServerPage()
+  ];
+
   PageController _pageController = PageController(initialPage: 1);
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
@@ -138,13 +148,19 @@ class _LandscapeState extends State<Landscape> {
               ListTile(
                 title: const Text('GIF'),
                 onTap: () {
-                  _showPage("GIF");
+                  _showPage("/gif");
                 },
               ),
               ListTile(
                 title: const Text('Scroll Text'),
                 onTap: () {
-                  _showPage("Scroll Text");
+                  _showPage("/scroll-text");
+                },
+              ),
+              ListTile(
+                title: const Text('Remote HTTP Server'),
+                onTap: () {
+                  _showPage("/remote-http");
                 },
               ),
             ],

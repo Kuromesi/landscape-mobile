@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+final _messangerKey = GlobalKey<ScaffoldMessengerState>();
 
-void notify(BuildContext context, String text) {
+void notify(String text) {
   final snackBar = SnackBar(
-      content: Text(text),
-      duration: const Duration(seconds: 2),
-    );
-    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    content: Text(text),
+    duration: const Duration(seconds: 2),
+  );
+  _messangerKey.currentState!.showSnackBar(snackBar);
 }
