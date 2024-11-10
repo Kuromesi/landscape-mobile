@@ -8,10 +8,14 @@ class ScrollTextConfiguration {
   final String? direction;
   final double? fontSize;
   final double? scrollSpeed;
+  final int? fontColor;
+  final bool? adaptiveColor;
 
-  ScrollTextConfiguration({required this.text, this.direction, this.fontSize, this.scrollSpeed});
+  ScrollTextConfiguration(
+      {required this.text, this.direction, this.fontSize, this.scrollSpeed, this.fontColor, this.adaptiveColor});
 
-  factory ScrollTextConfiguration.fromJson(Map<String, dynamic> json) => _$ScrollTextConfigurationFromJson(json);
+  factory ScrollTextConfiguration.fromJson(Map<String, dynamic> json) =>
+      _$ScrollTextConfigurationFromJson(json);
 
   Map<String, dynamic> toJson() => _$ScrollTextConfigurationToJson(this);
 }

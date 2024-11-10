@@ -1,14 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:landscape/remote/http.dart';
+import 'package:landscape/notifiers/notifier.dart';
 import 'package:text_scroll/text_scroll.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart';
-
-String defaultScrollText = 'ALL STUDY NO PLAY MAKES JACK A DUMB BOY';
+import 'package:landscape/constants/text.dart';
 
 class ScrollTextPage extends StatefulWidget {
   @override
@@ -32,10 +30,32 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   void initState() {
     super.initState();
     _loadPreferences();
+    _addRemoteHttpListener();
+  }
+
+  void _addRemoteHttpListener() {
+    notifier!.addListener(() => mounted
+        ? setState(() {
+            _text = notifier!.configuration.text;
+            if (notifier!.configuration.direction != null) {
+              _textDirection = notifier!.configuration.direction == 'rtl'
+                  ? TextDirection.rtl
+                  : TextDirection.ltr;
+            }
+            _fontSize = notifier!.configuration.fontSize ?? _fontSize;
+            _scrollSpeed = notifier!.configuration.scrollSpeed ?? _scrollSpeed;
+            _fontColor = notifier!.configuration.fontColor == null
+                ? _fontColor
+                : Color(notifier!.configuration.fontColor!);
+            _adaptiveColor =
+                notifier!.configuration.adaptiveColor ?? _adaptiveColor;
+          })
+        : null);
   }
 
   @override
   void dispose() {
+    notifier!.removeListener(() {});
     _savePreferences();
     super.dispose();
   }
@@ -217,13 +237,13 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-          body: FullScreenWrapper.wrap(
-              Center(
-                child: Container(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      TextScroll(
+      body: FullScreenWrapper.wrap(
+          Center(
+            child: Container(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  TextScroll(
                     _text,
                     textDirection: _textDirection,
                     style: TextStyle(

@@ -7,8 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:landscape/gif_view/gif_view.dart';
 import 'package:landscape/players/gif_reader.dart';
 import 'package:landscape/gif_view/my_gif_view.dart';
-
-const double optionsBarWidth = 0.6;
+import 'package:landscape/constants/constants.dart';
 
 class GifPage extends StatefulWidget {
   @override
@@ -129,7 +128,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
       }
       Image image = Image.file(
         File(e),
-        fit: BoxFit.fitWidth,
+        fit: MediaQuery.of(context).orientation == Orientation.landscape ? BoxFit.fitWidth : BoxFit.fitHeight,
       );
       GestureDetector gd = _imagePreviewWrapper(image, e, context);
       images.add(gd);
@@ -271,7 +270,7 @@ class _GifPlayerState extends State<GifPlayer> {
     _gifController.configure(frames);
     _gif = MyGifView(
       controller: _gifController,
-      fit: BoxFit.fitWidth,
+      fit: MediaQuery.of(context).orientation == Orientation.landscape ? BoxFit.fitWidth : BoxFit.fitHeight,
       frameRate: _frameRate,
     );
     setState(() {

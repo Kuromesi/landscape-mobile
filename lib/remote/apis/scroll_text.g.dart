@@ -13,6 +13,8 @@ ScrollTextConfiguration _$ScrollTextConfigurationFromJson(
       direction: json['direction'] as String?,
       fontSize: (json['fontSize'] as num?)?.toDouble(),
       scrollSpeed: (json['scrollSpeed'] as num?)?.toDouble(),
+      fontColor: (json['fontColor'] as num?)?.toInt(),
+      adaptiveColor: json['adaptiveColor'] as bool?,
     );
 
 Map<String, dynamic> _$ScrollTextConfigurationToJson(
@@ -22,4 +24,6 @@ Map<String, dynamic> _$ScrollTextConfigurationToJson(
       'direction': instance.direction,
       'fontSize': instance.fontSize,
       'scrollSpeed': instance.scrollSpeed,
+      'fontColor': instance.fontColor,
+      'adaptiveColor': instance.adaptiveColor,
     };
