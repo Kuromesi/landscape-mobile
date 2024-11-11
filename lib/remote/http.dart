@@ -11,12 +11,6 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:landscape/constants/constants.dart';
 
-void main() {
-  runApp(MaterialApp(
-    home: RemoteHttpServerPage(),
-  ));
-}
-
 Map<String, String> headers = {'Content-type': 'application/json'};
 
 class RemoteHttpServerPage extends StatefulWidget {
@@ -24,10 +18,18 @@ class RemoteHttpServerPage extends StatefulWidget {
   _RemoteHttpServerPageState createState() => _RemoteHttpServerPageState();
 }
 
-class _RemoteHttpServerPageState extends State<RemoteHttpServerPage> {
+class _RemoteHttpServerPageState extends State<RemoteHttpServerPage> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+  
   late HttpServer _server;
   bool _started = false;
   List<String> _logEntries = [];
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   void _log(String message) {
     _logEntries.add(message);
@@ -168,7 +170,7 @@ class Service {
   Handler get handler {
     final router = shelf_router.Router();
 
-    router.get('/', (Request request, String name) {
+    router.get('/', (Request request) {
       return Response.ok('Hi, this is Kuromesi speaking!');
     });
 
