@@ -2,12 +2,9 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:landscape/gif_view/src/gif_frame.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:landscape/gif_view/gif_view.dart';
-import 'package:landscape/players/gif_reader.dart';
-import 'package:landscape/gif_view/my_gif_view.dart';
 import 'package:landscape/constants/constants.dart';
+import 'package:landscape/players/players.dart';
 
 class GifPage extends StatefulWidget {
   @override
@@ -20,6 +17,10 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
 
   List<String> _filePaths = [];
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
+
+  // gif player configuration
+  double _frameRate = 15.0;
+  bool _loop = true;
 
   @override
   void initState() {
@@ -35,13 +36,19 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
 
   Future<void> _loadPreferences() async {
     _filePaths = await _prefs.getStringList("files") ?? [];
+    _frameRate = await _prefs.getDouble("frameRate") ?? 15.0;
+    _loop = await _prefs.getBool("loop") ?? true;
     setState(() {
       _filePaths = _filePaths;
+      _frameRate = _frameRate;
+      _loop = _loop;
     });
   }
 
   Future<void> _savePreferences() async {
     _prefs.setStringList("files", _filePaths);
+    _prefs.setDouble("frameRate", _frameRate);
+    _prefs.setBool("loop", _loop);
   }
 
   Future<void> _resetPreferences() async {
@@ -128,7 +135,9 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
       }
       Image image = Image.file(
         File(e),
-        fit: MediaQuery.of(context).orientation == Orientation.landscape ? BoxFit.fitWidth : BoxFit.fitHeight,
+        fit: MediaQuery.of(context).orientation == Orientation.landscape
+            ? BoxFit.fitWidth
+            : BoxFit.fitHeight,
       );
       GestureDetector gd = _imagePreviewWrapper(image, e, context);
       images.add(gd);
@@ -141,8 +150,52 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => GifPlayer(gifs: _filePaths),
+        builder: (context) =>
+            MultiGifPlayer(gifs: _filePaths, frameRate: _frameRate.round()),
       ),
+    );
+  }
+
+  void _configureGifPlay(BuildContext context) {
+    showModalBottomSheet(
+      // fix when using keyboard this panel will be hided
+      isScrollControlled: true,
+      context: context,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          // fix when using keyboard this panel will be hided
+          padding: MediaQuery.of(context).viewInsets,
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter innerSetState) {
+              return Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("Frame Rate - ${_frameRate.round().toString()}"),
+                    Slider(
+                      value: _frameRate,
+                      min: 5,
+                      max: 60,
+                      divisions: 55,
+                      label: _frameRate.round().toString(),
+                      onChanged: (value) {
+                        innerSetState(() {
+                          _frameRate = value;
+                        });
+                        setState(() {
+                          _frameRate = _frameRate;
+                        });
+                      },
+                      onChangeEnd: (value) => _prefs.setDouble("frameRate", _frameRate),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -213,6 +266,17 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         },
                       ),
                     ),
+                    SizedBox(
+                      width:
+                          MediaQuery.of(context).size.width * optionsBarWidth,
+                      child: ElevatedButton(
+                        child: Text('Configuration'),
+                        onPressed: () {
+                          _configureGifPlay(context);
+                          // Navigator.of(context).pop();
+                        },
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -220,86 +284,6 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
           ),
         );
       },
-    );
-  }
-}
-
-class GifPlayer extends StatefulWidget {
-  final List<String> gifs;
-
-  GifPlayer({Key? key, required this.gifs}) : super(key: key);
-
-  @override
-  State<GifPlayer> createState() => _GifPlayerState();
-}
-
-class _GifPlayerState extends State<GifPlayer> {
-  late GifController _gifController;
-  late MyGifView _gif;
-  int _frameRate = 10;
-  bool _loading = true;
-  String _status = "Loading...";
-
-  @override
-  void initState() {
-    super.initState();
-    _createMergedGifs();
-  }
-
-  void _createMergedGifs() async {
-    if (widget.gifs.isEmpty) {
-      _status = "No gifs selected";
-      return;
-    }
-    List<GifFrame> frames = [];
-    GifReader r = GifReader();
-
-    for (String gif in widget.gifs) {
-      try {
-        FileImage image = FileImage(
-          File(gif),
-        );
-        List<GifFrame> t = await r.getFrames(image);
-        frames.addAll(t);
-      } catch (e) {
-        _status = e.toString();
-        print(e);
-      }
-    }
-    _gifController = GifController(loop: true, autoPlay: true);
-    _gifController.configure(frames);
-    _gif = MyGifView(
-      controller: _gifController,
-      fit: MediaQuery.of(context).orientation == Orientation.landscape ? BoxFit.fitWidth : BoxFit.fitHeight,
-      frameRate: _frameRate,
-    );
-    setState(() {
-      _loading = false;
-      _gif = _gif;
-      _gifController = _gifController;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: GestureDetector(
-        onTap: () {
-          Navigator.pop(
-            context,
-          );
-        },
-        child: _loading
-            ? Container(
-                child: Center(
-                child: Text(_status),
-              ))
-            : Container(
-                width: double.infinity,
-                height: double.infinity,
-                child: _gif,
-              ),
-      ),
     );
   }
 }

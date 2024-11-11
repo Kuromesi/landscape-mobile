@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:landscape/players/gif.dart';
-import 'package:landscape/players/scroll_text.dart';
+import 'package:landscape/pages/gif.dart';
+import 'package:landscape/pages/scroll_text.dart';
 import 'package:landscape/remote/http.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:landscape/players/error.dart';
+import 'package:landscape/pages/error.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
