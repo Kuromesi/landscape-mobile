@@ -1,0 +1,16 @@
+<!-- appcast_template.xml -->
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>{{APP_NAME}} Changelog</title>
+    <link>{{APPCAST_URL}}</link>
+    <description>Most recent changes with links to updates.</description>
+    <language>en</language>
+    <item>
+      <title>Version {{VERSION}}</title>
+      <pubDate>{{PUB_DATE}}</pubDate>
+      <description>{{CHANGELOG}}</description>
+      <enclosure url="{{DOWNLOAD_URL}}" sparkle:version="{{VERSION}}" length="{{FILE_SIZE}}" type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>

@@ -65,3 +65,31 @@ jobs:
         with:
           artifacts: "build/app/outputs/flutter-apk/app-release.apk"
           tag: v${{ env.VERSION }}
+          
+      - name: Install Tools
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Set up environment
+        run: |
+          PUB_DATE=$(date -R)
+          VERSION=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name')
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[0].browser_download_url')
+          FILE_SIZE=$(curl -sI $DOWNLOAD_URL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+    
+      - name: Generate appcast.xml
+        run: |
+          sed -e "s/{{APP_NAME}}/Landscape/g" \
+              -e "s/{{VERSION}}/$VERSION/g" \
+              -e "s/{{PUB_DATE}}/$PUB_DATE/g" \
+              -e "s/{{CHANGELOG}}/${{ github.event.head_commit.message }}/g" \
+              -e "s/{{DOWNLOAD_URL}}/$DOWNLOAD_URL/g" \
+              -e "s/{{FILE_SIZE}}/$FILE_SIZE/g" \
+              templates/appcast_template.xml > appcast.xml
+      
+      - name: Publish appcast
+        run: |
+          git status
+          git add .
+          git commit -m "[KUROMESI-BOT] publish appcast.yaml"
+          git fetch origin master
+          git push origin HEAD:master
