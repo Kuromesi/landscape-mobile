@@ -29,13 +29,26 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   @override
   void initState() {
     super.initState();
+    configDump['scrollText'] = exportState;
     _loadPreferences();
   }
 
   @override
   void dispose() {
     _savePreferences();
+    configDump.remove('scrollText');
     super.dispose();
+  }
+
+  Map<String, dynamic> exportState() {
+    return {
+      'text': _text,
+      'textDirection': _textDirection.name,
+      'fontSize': _fontSize,
+      'adaptiveColor': _adaptiveColor,
+      'fontColor': _fontColor.toString(),
+      'scrollSpeed': _scrollSpeed,
+    };
   }
 
   Future<void> _loadPreferences() async {
@@ -214,14 +227,15 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   void _playFullScreen() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => RemoteScrollText(
-        text: _text, 
-      scrollSpeed: _scrollSpeed,
-      fontColor: _fontColor,
-      adaptiveColor: _adaptiveColor,
-      fontSize: _fontSize,
-      textDirection: _textDirection,
-)),
+      MaterialPageRoute(
+          builder: (context) => RemoteScrollText(
+                text: _text,
+                scrollSpeed: _scrollSpeed,
+                fontColor: _fontColor,
+                adaptiveColor: _adaptiveColor,
+                fontSize: _fontSize,
+                textDirection: _textDirection,
+              )),
     );
   }
 
