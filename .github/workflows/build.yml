@@ -84,7 +84,7 @@ jobs:
               -e "s/{{CHANGELOG}}/${{ github.event.head_commit.message }}/g" \
               -e "s/{{DOWNLOAD_URL}}/$DOWNLOAD_URL/g" \
               -e "s/{{FILE_SIZE}}/$FILE_SIZE/g" \
-              templates/appcast_template.xml > appcast.xml
+              templates/appcast.xml > appcast.xml
       
       - name: Publish appcast
         run: |
