@@ -171,10 +171,10 @@ class Service {
     final router = shelf_router.Router();
 
     router.get('/', (Request request) {
-      return Response.ok('Hi, this is Kuromesi speaking!');
+      return Response.ok('Hi, this is Kuromesi speaking!\n');
     });
 
-    router.mount('/configure', Api().router.call);
+    router.mount('/configure', ConfigureApi().router.call);
     router.mount('/', HealthCheck().router.call);
 
     return router.call;
@@ -199,16 +199,21 @@ class HealthCheck {
   }
 }
 
-class Api {
+class ConfigureApi {
   Future<Response> _messages(Request request) async {
-    return Response.ok('Apis for configuring players.');
+    return Response.ok('Apis for configuring players.\n');
   }
 
   Future<Response> _scrollText(Request request) async {
     String body = await request.readAsString();
-    ScrollTextConfiguration conf =
+    try {
+      ScrollTextConfiguration conf =
         ScrollTextConfiguration.fromJson(jsonDecode(body));
-    notifier!.updateConfiguration(conf);
+      notifier!.updateConfiguration(conf);
+    } catch (e) {
+      return Response.badRequest(body: e.toString());
+    }
+    
     return Response.ok(null);
   }
 

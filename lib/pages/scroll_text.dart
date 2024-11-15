@@ -30,32 +30,10 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   void initState() {
     super.initState();
     _loadPreferences();
-    _addRemoteHttpListener();
-  }
-
-  void _addRemoteHttpListener() {
-    notifier!.addListener(() => mounted
-        ? setState(() {
-            _text = notifier!.configuration.text;
-            if (notifier!.configuration.direction != null) {
-              _textDirection = notifier!.configuration.direction == 'rtl'
-                  ? TextDirection.rtl
-                  : TextDirection.ltr;
-            }
-            _fontSize = notifier!.configuration.fontSize ?? _fontSize;
-            _scrollSpeed = notifier!.configuration.scrollSpeed ?? _scrollSpeed;
-            _fontColor = notifier!.configuration.fontColor == null
-                ? _fontColor
-                : Color(notifier!.configuration.fontColor!);
-            _adaptiveColor =
-                notifier!.configuration.adaptiveColor ?? _adaptiveColor;
-          })
-        : null);
   }
 
   @override
   void dispose() {
-    notifier!.removeListener(() {});
     _savePreferences();
     super.dispose();
   }
@@ -233,12 +211,150 @@ class _ScrollTextPageState extends State<ScrollTextPage>
     );
   }
 
+  void _playFullScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => RemoteScrollText(
+        text: _text, 
+      scrollSpeed: _scrollSpeed,
+      fontColor: _fontColor,
+      adaptiveColor: _adaptiveColor,
+      fontSize: _fontSize,
+      textDirection: _textDirection,
+)),
+    );
+  }
+
+  Widget _buttons() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        FloatingActionButton(
+          heroTag: "scroll_play",
+          onPressed: () => {_playFullScreen()},
+          child: Icon(Icons.play_arrow),
+        ),
+        SizedBox(height: 16),
+        FloatingActionButton(
+          heroTag: "scroll_settings",
+          onPressed: _showSettingsDialog,
+          child: Icon(Icons.settings),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      body: FullScreenWrapper.wrap(
-          Center(
+      body: FullScreenWrapper(
+        child: Center(
+          child: Container(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                TextScroll(
+                  _text,
+                  textDirection: _textDirection,
+                  style: TextStyle(
+                    fontSize: _fontSize,
+                    color: _adaptiveColor ? null : _fontColor,
+                  ),
+                  velocity:
+                      Velocity(pixelsPerSecond: Offset(_scrollSpeed * 100, 0)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      floatingActionButton: _buttons(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+}
+
+class RemoteScrollText extends StatefulWidget {
+  const RemoteScrollText({
+    Key? key,
+    this.adaptiveColor,
+    this.fontColor,
+    this.scrollSpeed,
+    required this.text,
+    this.textDirection,
+    this.fontSize,
+  }) : super(key: key);
+
+  final String text;
+
+  final TextDirection? textDirection;
+  final double? fontSize;
+  final bool? adaptiveColor;
+  final Color? fontColor;
+  final double? scrollSpeed;
+
+  @override
+  _RemoteScrollTextState createState() => _RemoteScrollTextState();
+}
+
+class _RemoteScrollTextState extends State<RemoteScrollText> {
+  late String _text;
+  late TextDirection _textDirection;
+  late double _fontSize;
+  late bool _adaptiveColor;
+  late Color _fontColor;
+  late double _scrollSpeed;
+
+  @override
+  void initState() {
+    super.initState();
+    _text = widget.text;
+    _textDirection = widget.textDirection ?? TextDirection.ltr;
+    _fontSize = widget.fontSize ?? 24;
+    _scrollSpeed = widget.scrollSpeed ?? 1;
+    _fontColor = widget.fontColor ?? Colors.black;
+    _adaptiveColor = widget.adaptiveColor ?? true;
+    _addRemoteHttpListener();
+  }
+
+  void _addRemoteHttpListener() {
+    notifier!.addListener(() => mounted
+        ? setState(() {
+            _text = notifier!.configuration.text;
+            if (notifier!.configuration.direction != null) {
+              _textDirection = notifier!.configuration.direction == 'rtl'
+                  ? TextDirection.rtl
+                  : TextDirection.ltr;
+            }
+            _fontSize = notifier!.configuration.fontSize ?? _fontSize;
+            _scrollSpeed = notifier!.configuration.scrollSpeed ?? _scrollSpeed;
+            _fontColor = notifier!.configuration.fontColor == null
+                ? _fontColor
+                : Color(notifier!.configuration.fontColor!);
+            _adaptiveColor =
+                notifier!.configuration.adaptiveColor ?? _adaptiveColor;
+          })
+        : null);
+  }
+
+  @override
+  void dispose() {
+    notifier!.removeListener(() {});
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: GestureDetector(
+          onTap: () {
+            Navigator.pop(
+              context,
+            );
+          },
+          child: Center(
             child: Container(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -257,12 +373,8 @@ class _ScrollTextPageState extends State<ScrollTextPage>
               ),
             ),
           ),
-          context),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showSettingsDialog,
-        child: Icon(Icons.settings),
+        ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
