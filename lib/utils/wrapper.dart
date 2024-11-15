@@ -1,61 +1,35 @@
 import 'package:flutter/material.dart';
 
-class FullScreenWrapper {
-  static GestureDetector wrap<T extends Widget>(T obj, BuildContext context,
-      {List<void Function()> enter = const [],
-      List<void Function()> exit = const []}) {
-    return GestureDetector(
-        onTap: () {
-          enter.forEach((fn) => fn());
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => Scaffold(
-                      body: Center(
-                        child: GestureDetector(
-                            onTap: () {
-                              exit.forEach((fn) => fn());
-                              Navigator.pop(
-                                context,
-                              );
-                            },
-                            child: Container(
-                              child: obj,
-                              width: double.infinity,
-                              height: double.infinity,
-                            )),
-                      ),
-                    )),
-          );
-        },
-        child: obj);
-  }
-}
+class FullScreenWrapper extends StatelessWidget {
+  const FullScreenWrapper({Key? key, this.child}) : super(key: key);
+  final Widget? child;
 
-GestureDetector fullScreenWrap<T extends Widget>(T obj, BuildContext context) {
-  return GestureDetector(
-    onTap: () {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => Scaffold(
-            body: Center(
-              child: GestureDetector(
-                  onTap: () {
-                    Navigator.pop(
-                      context,
-                    );
-                  },
-                  child: Container(
-                    child: obj,
-                    width: double.infinity,
-                    height: double.infinity,
-                  )),
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(
+                        context,
+                      );
+                    },
+                    child: Container(
+                      child: child,
+                      width: double.infinity,
+                      height: double.infinity,
+                    )),
+              ),
             ),
           ),
-        ),
-      );
-    },
-    child: obj,
-  );
+        );
+      },
+      child: child,
+    );
+  }
 }

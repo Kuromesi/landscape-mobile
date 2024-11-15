@@ -32,10 +32,16 @@ class Landscape extends StatefulWidget {
   _LandscapeState createState() => _LandscapeState();
 }
 
-Map<String, int> _pagesMap = {
+Map<String, int> routePageMap = {
   '/gif': 1,
   '/scroll-text': 2,
   "/remote-http": 3,
+};
+
+Map<int, String> pageRouteMap = {
+  1: '/gif',
+  2: '/scroll-text',
+  3: "/remote-http",
 };
 
 class _LandscapeState extends State<Landscape> {
@@ -55,12 +61,23 @@ class _LandscapeState extends State<Landscape> {
   @override
   void initState() {
     _loadPreferences();
+    configDump['landscape'] = exportState;
     super.initState();
+  }
+
+  Map<String, dynamic> exportState() {
+    return {
+      'currentPage': pageRouteMap[_pageIndex],
+      'keepScreenOn': _keepScreenOn,
+      'isDarkTheme': _isDarkTheme
+    };
   }
 
   @override
   void dispose() {
     _savePreferences();
+    // remove key from config dump map
+    configDump.remove('landscape');
     _pageController.dispose();
     super.dispose();
   }
@@ -89,7 +106,7 @@ class _LandscapeState extends State<Landscape> {
 
   void _showPage(String page) {
     setState(() {
-      _pageIndex = _pagesMap[page] ?? 0;
+      _pageIndex = routePageMap[page] ?? 0;
       _pageController.jumpToPage(_pageIndex);
     });
   }

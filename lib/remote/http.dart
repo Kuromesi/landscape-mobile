@@ -10,6 +10,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:landscape/constants/constants.dart';
+import 'package:landscape/utils/utils.dart';
 
 Map<String, String> headers = {'Content-type': 'application/json'};
 
@@ -18,10 +19,11 @@ class RemoteHttpServerPage extends StatefulWidget {
   _RemoteHttpServerPageState createState() => _RemoteHttpServerPageState();
 }
 
-class _RemoteHttpServerPageState extends State<RemoteHttpServerPage> with AutomaticKeepAliveClientMixin {
+class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  
+
   late HttpServer _server;
   bool _started = false;
   List<String> _logEntries = [];
@@ -171,10 +173,10 @@ class Service {
     final router = shelf_router.Router();
 
     router.get('/', (Request request) {
-      return Response.ok('Hi, this is Kuromesi speaking!');
+      return Response.ok('Hi, this is Kuromesi speaking!\n');
     });
 
-    router.mount('/configure', Api().router.call);
+    router.mount('/configure', ConfigureApi().router.call);
     router.mount('/', HealthCheck().router.call);
 
     return router.call;
@@ -199,17 +201,34 @@ class HealthCheck {
   }
 }
 
-class Api {
+class ConfigureApi {
   Future<Response> _messages(Request request) async {
-    return Response.ok('Apis for configuring players.');
+    return Response.ok('Apis for configuring players.\n');
   }
 
   Future<Response> _scrollText(Request request) async {
     String body = await request.readAsString();
-    ScrollTextConfiguration conf =
-        ScrollTextConfiguration.fromJson(jsonDecode(body));
-    notifier!.updateConfiguration(conf);
+    try {
+      ScrollTextConfiguration conf =
+          ScrollTextConfiguration.fromJson(jsonDecode(body));
+      notifier!.updateConfiguration(conf);
+    } catch (e) {
+      return Response.badRequest(body: e.toString());
+    }
+
     return Response.ok(null);
+  }
+
+  Future<Response> _configDump(Request request) async {
+    try {
+      Map<String, dynamic> config = Map();
+      for (var k in configDump.keys) {
+        config[k] = configDump[k]!();
+      }
+      return Response.ok(encoding: utf8, headers: headers, jsonEncode(config));
+    } catch (e) {
+      return Response.internalServerError(body: e.toString());
+    }
   }
 
   shelf_router.Router get router {
@@ -218,6 +237,8 @@ class Api {
     router.get('/', _messages);
 
     router.post('/scroll-text', _scrollText);
+
+    router.get('/config-dump', _configDump);
 
     return router;
   }
