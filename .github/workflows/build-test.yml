@@ -27,16 +27,44 @@ jobs:
 
       - run: flutter --version
 
-      - name: Install Dependencies
-        run: flutter pub get
-
       - name: Decide Release Version
         run: |
           bash scripts/replace_version.sh
-
+      
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=keystore.jks" >> android/key.properties
+        
       - name: Echo pubspec.yaml
         run: |
           cat pubspec.yaml
 
       - name: Build APK
         run: flutter build apk --release
+        
+      - name: Install Tools
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Set up environment
+        run: |
+          PUB_DATE=$(date -R)
+          VERSION=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name')
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[0].browser_download_url')
+          FILE_SIZE=$(curl -sI $DOWNLOAD_URL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+    
+      - name: Generate appcast.xml
+        run: |
+          sed -e "s/{{APP_NAME}}/Landscape/g" \
+              -e "s/{{VERSION}}/$VERSION/g" \
+              -e "s/{{PUB_DATE}}/$PUB_DATE/g" \
+              -e "s/{{CHANGELOG}}/${{ github.event.head_commit.message }}/g" \
+              -e "s/{{DOWNLOAD_URL}}/$DOWNLOAD_URL/g" \
+              -e "s/{{FILE_SIZE}}/$FILE_SIZE/g" \
+              templates/appcast.xml > appcast.xml

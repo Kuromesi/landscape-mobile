@@ -28,9 +28,6 @@ jobs:
 
       - run: flutter --version
 
-      - name: Install Dependencies
-        run: flutter pub get
-
       - name: Decide Release Version
         run: |
           bash scripts/replace_version.sh
