@@ -84,9 +84,8 @@ jobs:
               templates/appcast.xml > appcast.xml
       
       - name: Publish appcast
-        run: |
-          git status
-          git add .
-          git commit -m "[KUROMESI-BOT] publish appcast.yaml"
-          git fetch origin master
-          git push origin HEAD:master
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[KUROMESI-BOT] publish appcast.yaml for v${{ env.VERSION }}"
+          commit_options: '--signoff'
+          commit_user_name: KUROMESI-BOT
