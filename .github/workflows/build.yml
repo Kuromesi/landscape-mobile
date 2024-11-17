@@ -68,19 +68,20 @@ jobs:
 
       - name: Set up environment
         run: |
-          PUB_DATE=$(date -R)
-          VERSION=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.tag_name')
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[0].browser_download_url')
-          FILE_SIZE=$(curl -sI $DOWNLOAD_URL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')
+          echo "PUB_DATE=$(date -R)" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[0].browser_download_url')" >> $GITHUB_ENV
+          echo "FILE_SIZE=$(curl -sI $DOWNLOAD_URL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')" >> $GITHUB_ENV
+          echo "APPCAST_URL=https://raw.githubusercontent.com/${{ github.repository }}/main/appcast.xml"
     
       - name: Generate appcast.xml
         run: |
           sed -e "s/{{APP_NAME}}/Landscape/g" \
-              -e "s/{{VERSION}}/$VERSION/g" \
-              -e "s/{{PUB_DATE}}/$PUB_DATE/g" \
+              -e "s/{{VERSION}}/${{ env.VERSION }}/g" \
+              -e "s/{{PUB_DATE}}/${{ env.PUB_DATE }}/g" \
               -e "s/{{CHANGELOG}}/${{ github.event.head_commit.message }}/g" \
-              -e "s/{{DOWNLOAD_URL}}/$DOWNLOAD_URL/g" \
-              -e "s/{{FILE_SIZE}}/$FILE_SIZE/g" \
+              -e "s/{{DOWNLOAD_URL}}/${{ env.DOWNLOAD_URL }}/g" \
+              -e "s/{{FILE_SIZE}}/${{ env.FILE_SIZE }}/g" \
+              -e "s/{{APPCAST_URL}}/${{ env.APPCAST_URL }}/g"
               templates/appcast.xml > appcast.xml
       
       - name: Publish appcast
