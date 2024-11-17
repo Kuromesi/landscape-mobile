@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:json_annotation/json_annotation.dart';
 import 'package:landscape/pages/gif.dart';
 import 'package:landscape/pages/scroll_text.dart';
 import 'package:landscape/remote/http.dart';
@@ -10,11 +11,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:landscape/notifiers/notifier.dart';
 import 'package:landscape/utils/utils.dart';
+import 'apis/apis.dart';
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    notifier = Provider.of<ScrollTextNotifier>(context, listen: false);
+    notifier = Provider.of<RemoteAppNotifier>(context, listen: false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     return MaterialApp(
       title: 'Landscape',
@@ -45,8 +47,7 @@ Map<int, String> pageRouteMap = {
 };
 
 class _LandscapeState extends State<Landscape> {
-  bool _isDarkTheme = false;
-  bool _keepScreenOn = false;
+  AppState _conf = AppState();
   int _pageIndex = 1;
   final List<Widget> _pages = [
     ErrorPage(),
@@ -61,16 +62,15 @@ class _LandscapeState extends State<Landscape> {
   @override
   void initState() {
     _loadPreferences();
+    _conf.isDarkTheme = false;
+    _conf.keepScreenOn = false;
+    _conf.currentPage = pageRouteMap[_pageIndex];
     configDump['landscape'] = exportState;
     super.initState();
   }
 
-  Map<String, dynamic> exportState() {
-    return {
-      'currentPage': pageRouteMap[_pageIndex],
-      'keepScreenOn': _keepScreenOn,
-      'isDarkTheme': _isDarkTheme
-    };
+  JsonSerializable exportState() {
+    return _conf;
   }
 
   @override
@@ -83,25 +83,25 @@ class _LandscapeState extends State<Landscape> {
   }
 
   Future<void> _loadPreferences() async {
-    _isDarkTheme = await _prefs.getBool('isDarkTheme') ?? false;
-    _keepScreenOn = await _prefs.getBool('keepScreenOn') ?? false;
+    _conf.isDarkTheme = await _prefs.getBool('isDarkTheme') ?? false;
+    _conf.keepScreenOn = await _prefs.getBool('keepScreenOn') ?? false;
     setState(() {
-      _isDarkTheme = _isDarkTheme;
-      _keepScreenOn = _keepScreenOn;
+      _conf.isDarkTheme = _conf.isDarkTheme;
+      _conf.keepScreenOn = _conf.keepScreenOn;
     });
   }
 
   Future<void> _savePreferences() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool("isDarkTheme", _isDarkTheme);
-    await prefs.setBool("keepScreenOn", _keepScreenOn);
+    await prefs.setBool("isDarkTheme", _conf.isDarkTheme!);
+    await prefs.setBool("keepScreenOn", _conf.keepScreenOn!);
   }
 
   void _toggleTheme() {
     setState(() {
-      _isDarkTheme = !_isDarkTheme;
+      _conf.isDarkTheme = !_conf.isDarkTheme!;
     });
-    _prefs.setBool("isDarkTheme", _isDarkTheme);
+    _prefs.setBool("isDarkTheme", _conf.isDarkTheme!);
   }
 
   void _showPage(String page) {
@@ -112,13 +112,13 @@ class _LandscapeState extends State<Landscape> {
   }
 
   void _toggleKeepScreenOn(BuildContext context) {
-    _keepScreenOn = !_keepScreenOn;
-    WakelockPlus.toggle(enable: _keepScreenOn);
+    _conf.keepScreenOn = !_conf.keepScreenOn!;
+    WakelockPlus.toggle(enable: _conf.keepScreenOn!);
     setState(() {
-      _keepScreenOn = _keepScreenOn;
+      _conf.keepScreenOn = _conf.keepScreenOn;
     });
     final snackBar = SnackBar(
-      content: Text(_keepScreenOn ? 'Wakelock Enabled' : 'Wakelock Disabled'),
+      content: Text(_conf.keepScreenOn! ? 'Wakelock Enabled' : 'Wakelock Disabled'),
       duration: const Duration(seconds: 2),
     );
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
@@ -128,9 +128,9 @@ class _LandscapeState extends State<Landscape> {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
-        primarySwatch: _isDarkTheme ? Colors.grey : Colors.purple,
-        brightness: _isDarkTheme ? Brightness.dark : Brightness.light,
-        scaffoldBackgroundColor: _isDarkTheme ? Colors.black : Colors.white,
+        primarySwatch: _conf.isDarkTheme! ? Colors.grey : Colors.purple,
+        brightness: _conf.isDarkTheme! ? Brightness.dark : Brightness.light,
+        scaffoldBackgroundColor: _conf.isDarkTheme! ? Colors.black : Colors.white,
       ),
       home: Scaffold(
         appBar: AppBar(
@@ -138,12 +138,12 @@ class _LandscapeState extends State<Landscape> {
           actions: [
             IconButton(
               icon:
-                  Icon(_isDarkTheme ? Icons.wb_sunny : Icons.nightlight_round),
+                  Icon(_conf.isDarkTheme! ? Icons.wb_sunny : Icons.nightlight_round),
               onPressed: _toggleTheme,
             ),
             Builder(
               builder: (context) => IconButton(
-                icon: Icon(_keepScreenOn ? Icons.lock : Icons.lock_open),
+                icon: Icon(_conf.keepScreenOn! ? Icons.lock : Icons.lock_open),
                 onPressed: () => _toggleKeepScreenOn(context),
               ),
             )
@@ -163,7 +163,7 @@ class _LandscapeState extends State<Landscape> {
             children: <Widget>[
               DrawerHeader(
                 decoration: BoxDecoration(
-                  color: _isDarkTheme ? Colors.grey[800] : Colors.purple,
+                  color: _conf.isDarkTheme! ? Colors.grey[800] : Colors.purple,
                 ),
                 child: const Text('Players'),
               ),

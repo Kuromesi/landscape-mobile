@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 void main() {
   runApp(MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => ScrollTextNotifier()),
+        ChangeNotifierProvider(create: (context) => RemoteAppNotifier()),
       ],
       child: MyApp(),
     ),);
