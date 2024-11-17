@@ -9,7 +9,7 @@ part of 'scroll_text.dart';
 ScrollTextConfiguration _$ScrollTextConfigurationFromJson(
         Map<String, dynamic> json) =>
     ScrollTextConfiguration(
-      text: json['text'] as String,
+      text: json['text'] as String?,
       direction: json['direction'] as String?,
       fontSize: (json['fontSize'] as num?)?.toDouble(),
       scrollSpeed: (json['scrollSpeed'] as num?)?.toDouble(),

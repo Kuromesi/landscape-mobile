@@ -1,12 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:json_annotation/json_annotation.dart';
+import 'package:landscape/constants/constants.dart';
 import 'package:landscape/notifiers/notifier.dart';
 import 'package:text_scroll/text_scroll.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:landscape/constants/text.dart';
+import 'package:landscape/apis/apis.dart';
+import 'package:landscape/players/players.dart';
 
 class ScrollTextPage extends StatefulWidget {
   @override
@@ -18,66 +22,52 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   @override
   bool get wantKeepAlive => true;
 
-  String _text = defaultScrollText;
-  TextDirection _textDirection = TextDirection.ltr;
-  double _fontSize = 80;
-  bool _adaptiveColor = true;
-  Color? _fontColor = const Color(0x00000000);
-  double _scrollSpeed = 1.0;
+  final ScrollTextConfiguration _conf = ScrollTextConfiguration(
+    text: defaultScrollText,
+    direction: "rtl",
+    fontSize: 80,
+    scrollSpeed: 1.0,
+    fontColor: 0x00000000,
+    adaptiveColor: true,
+  );
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
   @override
   void initState() {
     super.initState();
-    configDump['scrollText'] = exportState;
+    configDump[configScrollText] = exportState;
     _loadPreferences();
   }
 
   @override
   void dispose() {
     _savePreferences();
-    configDump.remove('scrollText');
+    configDump.remove(configScrollText);
     super.dispose();
   }
 
-  Map<String, dynamic> exportState() {
-    return {
-      'text': _text,
-      'textDirection': _textDirection.name,
-      'fontSize': _fontSize,
-      'adaptiveColor': _adaptiveColor,
-      'fontColor': _fontColor.toString(),
-      'scrollSpeed': _scrollSpeed,
-    };
+  JsonSerializable exportState() {
+    return _conf;
   }
 
   Future<void> _loadPreferences() async {
-    _text = await _prefs.getString("scrollText") ?? defaultScrollText;
-    _textDirection = (await _prefs.getString("scrollTextDirection")) == 'rtl'
-        ? TextDirection.rtl
-        : TextDirection.ltr;
-    _fontSize = await _prefs.getDouble("scrollTextFontSize") ?? 80;
-    _fontColor =
-        Color(await _prefs.getInt("scrollTextFontColor") ?? 0x00000000);
-    _adaptiveColor = await _prefs.getBool("scrollTextAdaptiveColor") ?? true;
-    _scrollSpeed = await _prefs.getDouble("scrollTextScrollSpeed") ?? 1.0;
-    setState(() {
-      _text = _text;
-      _textDirection = _textDirection;
-      _fontSize = _fontSize;
-      _fontColor = _fontColor;
-      _adaptiveColor = _adaptiveColor;
-      _scrollSpeed = _scrollSpeed;
-    });
+    _conf.text = await _prefs.getString("scrollText") ?? defaultScrollText;
+    _conf.direction = await _prefs.getString("scrollTextDirection");
+    _conf.fontSize = await _prefs.getDouble("scrollTextFontSize") ?? 80;
+    _conf.fontColor = await _prefs.getInt("scrollTextFontColor");
+    _conf.adaptiveColor =
+        await _prefs.getBool("scrollTextAdaptiveColor") ?? true;
+    _conf.scrollSpeed = await _prefs.getDouble("scrollTextScrollSpeed") ?? 1.0;
+    setState(() {});
   }
 
   Future<void> _savePreferences() async {
-    await _prefs.setString("scrollText", _text);
-    await _prefs.setString("scrollTextDirection", _textDirection.name);
-    await _prefs.setDouble("scrollTextFontSize", _fontSize);
-    await _prefs.setInt("scrollTextFontColor", _fontColor?.value ?? 0x00000000);
-    await _prefs.setBool("scrollTextAdaptiveColor", _adaptiveColor);
-    await _prefs.setDouble("scrollTextScrollSpeed", _scrollSpeed);
+    await _prefs.setString("scrollText", _conf.text!);
+    await _prefs.setString("scrollTextDirection", _conf.direction!);
+    await _prefs.setDouble("scrollTextFontSize", _conf.fontSize!);
+    await _prefs.setInt("scrollTextFontColor", _conf.fontColor!);
+    await _prefs.setBool("scrollTextAdaptiveColor", _conf.adaptiveColor!);
+    await _prefs.setDouble("scrollTextScrollSpeed", _conf.scrollSpeed!);
   }
 
   void _showSettingsDialog() {
@@ -98,18 +88,18 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                   children: [
                     TextFormField(
                       decoration: InputDecoration(labelText: 'Text'),
-                      initialValue: _text,
+                      initialValue: _conf.text,
                       onChanged: (value) {
                         innerSetState(() {
-                          _text = value;
+                          _conf.text = value;
                         });
-                        setState(() {
-                          _text = _text;
-                        });
+                        setState(() {});
                       },
                     ),
                     DropdownButtonFormField<TextDirection>(
-                      value: _textDirection,
+                      value: _conf.direction == "rtl"
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
                       items: const [
                         DropdownMenuItem(
                           value: TextDirection.ltr,
@@ -122,47 +112,41 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                       ],
                       onChanged: (value) {
                         innerSetState(() {
-                          _textDirection = value!;
+                          _conf.direction = value!.name;
                         });
-                        setState(() {
-                          _textDirection = _textDirection;
-                        });
+                        setState(() {});
                       },
                       decoration:
                           const InputDecoration(labelText: 'Scroll Direction'),
                     ),
                     Slider(
-                      value: _fontSize,
+                      value: _conf.fontSize!,
                       min: 50,
                       max: 150,
                       divisions: 120,
-                      label: _fontSize.round().toString(),
+                      label: _conf.fontSize!.round().toString(),
                       onChanged: (value) {
                         innerSetState(() {
-                          _fontSize = value;
+                          _conf.fontSize = value;
                         });
-                        setState(() {
-                          _fontSize = _fontSize;
-                        });
+                        setState(() {});
                       },
                     ),
-                    Text('Font Size: ${_fontSize.round()}'),
+                    Text('Font Size: ${_conf.fontSize!.round()}'),
                     Slider(
-                      value: _scrollSpeed,
+                      value: _conf.scrollSpeed!,
                       min: 0,
                       max: 10,
                       divisions: 20,
-                      label: (_scrollSpeed).toString(),
+                      label: (_conf.scrollSpeed!).toString(),
                       onChanged: (value) {
                         innerSetState(() {
-                          _scrollSpeed = value;
+                          _conf.scrollSpeed = value;
                         });
-                        setState(() {
-                          _scrollSpeed = _scrollSpeed;
-                        });
+                        setState(() {});
                       },
                     ),
-                    Text('Scroll Speed: ${(_scrollSpeed)}'),
+                    Text('Scroll Speed: ${(_conf.scrollSpeed)}'),
                     Row(
                       children: [
                         const Expanded(
@@ -176,14 +160,13 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                               builder: (context) => AlertDialog(
                                 content: SingleChildScrollView(
                                   child: BlockPicker(
-                                    pickerColor: _fontColor,
+                                    pickerColor: Color(_conf.fontColor!),
                                     onColorChanged: (color) {
                                       innerSetState(() {
-                                        _fontColor = color;
+                                        _conf.fontColor = color.value;
                                       });
                                       setState(() {
-                                        _fontColor = color;
-                                        _adaptiveColor = false;
+                                        _conf.adaptiveColor = false;
                                       });
                                     },
                                   ),
@@ -193,10 +176,10 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                                     child: Text('Auto'),
                                     onPressed: () {
                                       innerSetState(() {
-                                        _fontColor = null;
+                                        _conf.fontColor = null;
                                       });
                                       setState(() {
-                                        _adaptiveColor = true;
+                                        _conf.adaptiveColor = true;
                                       });
                                     },
                                   ),
@@ -224,31 +207,10 @@ class _ScrollTextPageState extends State<ScrollTextPage>
     );
   }
 
-  void _playFullScreen() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-          builder: (context) => RemoteScrollText(
-                text: _text,
-                scrollSpeed: _scrollSpeed,
-                fontColor: _fontColor,
-                adaptiveColor: _adaptiveColor,
-                fontSize: _fontSize,
-                textDirection: _textDirection,
-              )),
-    );
-  }
-
   Widget _buttons() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        FloatingActionButton(
-          heroTag: "scroll_play",
-          onPressed: () => {_playFullScreen()},
-          child: Icon(Icons.play_arrow),
-        ),
-        SizedBox(height: 16),
         FloatingActionButton(
           heroTag: "scroll_settings",
           onPressed: _showSettingsDialog,
@@ -263,132 +225,10 @@ class _ScrollTextPageState extends State<ScrollTextPage>
     super.build(context);
     return Scaffold(
       body: FullScreenWrapper(
-        child: Center(
-          child: Container(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                TextScroll(
-                  _text,
-                  textDirection: _textDirection,
-                  style: TextStyle(
-                    fontSize: _fontSize,
-                    color: _adaptiveColor ? null : _fontColor,
-                  ),
-                  velocity:
-                      Velocity(pixelsPerSecond: Offset(_scrollSpeed * 100, 0)),
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: ScrollTextPlayer(conf: _conf),
       ),
       floatingActionButton: _buttons(),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
-  }
-}
-
-class RemoteScrollText extends StatefulWidget {
-  const RemoteScrollText({
-    Key? key,
-    this.adaptiveColor,
-    this.fontColor,
-    this.scrollSpeed,
-    required this.text,
-    this.textDirection,
-    this.fontSize,
-  }) : super(key: key);
-
-  final String text;
-
-  final TextDirection? textDirection;
-  final double? fontSize;
-  final bool? adaptiveColor;
-  final Color? fontColor;
-  final double? scrollSpeed;
-
-  @override
-  _RemoteScrollTextState createState() => _RemoteScrollTextState();
-}
-
-class _RemoteScrollTextState extends State<RemoteScrollText> {
-  late String _text;
-  late TextDirection _textDirection;
-  late double _fontSize;
-  late bool _adaptiveColor;
-  late Color _fontColor;
-  late double _scrollSpeed;
-
-  @override
-  void initState() {
-    super.initState();
-    _text = widget.text;
-    _textDirection = widget.textDirection ?? TextDirection.ltr;
-    _fontSize = widget.fontSize ?? 24;
-    _scrollSpeed = widget.scrollSpeed ?? 1;
-    _fontColor = widget.fontColor ?? Colors.black;
-    _adaptiveColor = widget.adaptiveColor ?? true;
-    _addRemoteHttpListener();
-  }
-
-  void _addRemoteHttpListener() {
-    notifier!.addListener(() => mounted
-        ? setState(() {
-            _text = notifier!.configuration.text;
-            if (notifier!.configuration.direction != null) {
-              _textDirection = notifier!.configuration.direction == 'rtl'
-                  ? TextDirection.rtl
-                  : TextDirection.ltr;
-            }
-            _fontSize = notifier!.configuration.fontSize ?? _fontSize;
-            _scrollSpeed = notifier!.configuration.scrollSpeed ?? _scrollSpeed;
-            _fontColor = notifier!.configuration.fontColor == null
-                ? _fontColor
-                : Color(notifier!.configuration.fontColor!);
-            _adaptiveColor =
-                notifier!.configuration.adaptiveColor ?? _adaptiveColor;
-          })
-        : null);
-  }
-
-  @override
-  void dispose() {
-    notifier!.removeListener(() {});
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: GestureDetector(
-          onTap: () {
-            Navigator.pop(
-              context,
-            );
-          },
-          child: Center(
-            child: Container(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  TextScroll(
-                    _text,
-                    textDirection: _textDirection,
-                    style: TextStyle(
-                      fontSize: _fontSize,
-                      color: _adaptiveColor ? null : _fontColor,
-                    ),
-                    velocity: Velocity(
-                        pixelsPerSecond: Offset(_scrollSpeed * 100, 0)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

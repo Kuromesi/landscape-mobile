@@ -2,9 +2,14 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:landscape/apis/gif.dart';
+import 'package:landscape/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:landscape/constants/constants.dart';
 import 'package:landscape/players/players.dart';
+import 'package:landscape/apis/apis.dart';
+import 'package:json_annotation/json_annotation.dart';
+
 
 class GifPage extends StatefulWidget {
   @override
@@ -15,40 +20,43 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  List<String> _filePaths = [];
-  final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
+  final GifConfiguration _conf = GifConfiguration(
+    frameRate: 15.0,
+    filePaths: [],
+    loop: true,
+  );
 
-  // gif player configuration
-  double _frameRate = 15.0;
-  bool _loop = true;
+  final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
   @override
   void initState() {
     super.initState();
+    configDump[configGif] = exportState;
     _loadPreferences();
   }
 
   @override
   void dispose() {
+    configDump.remove(configGif);
     _savePreferences();
     super.dispose();
   }
 
+  JsonSerializable exportState() {
+    return _conf;
+  }
+
   Future<void> _loadPreferences() async {
-    _filePaths = await _prefs.getStringList("files") ?? [];
-    _frameRate = await _prefs.getDouble("frameRate") ?? 15.0;
-    _loop = await _prefs.getBool("loop") ?? true;
-    setState(() {
-      _filePaths = _filePaths;
-      _frameRate = _frameRate;
-      _loop = _loop;
-    });
+    _conf.filePaths = await _prefs.getStringList("files") ?? [];
+    _conf.frameRate = await _prefs.getDouble("frameRate") ?? 15.0;
+    _conf.loop = await _prefs.getBool("loop") ?? true;
+    setState(() {});
   }
 
   Future<void> _savePreferences() async {
-    _prefs.setStringList("files", _filePaths);
-    _prefs.setDouble("frameRate", _frameRate);
-    _prefs.setBool("loop", _loop);
+    _prefs.setStringList("files", _conf.filePaths!);
+    _prefs.setDouble("frameRate", _conf.frameRate!);
+    _prefs.setBool("loop", _conf.loop!);
   }
 
   Future<void> _resetPreferences() async {
@@ -82,10 +90,8 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
         );
       },
       onDoubleTap: () {
-        _filePaths.remove(path);
-        setState(() {
-          _filePaths = _filePaths;
-        });
+        _conf.filePaths!.remove(path);
+        setState(() {});
       },
       child: image,
     );
@@ -119,7 +125,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
             scrollDirection: orientation == Orientation.landscape
                 ? Axis.horizontal
                 : Axis.vertical,
-            children: _buildImagesPreview(_filePaths, context),
+            children: _buildImagesPreview(_conf.filePaths!, context),
           ));
         }));
   }
@@ -151,7 +157,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
       context,
       MaterialPageRoute(
         builder: (context) =>
-            MultiGifPlayer(gifs: _filePaths, frameRate: _frameRate.round()),
+            MultiGifPlayer(gifs: _conf.filePaths!, frameRate: _conf.frameRate!.round()),
       ),
     );
   }
@@ -172,22 +178,21 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text("Frame Rate - ${_frameRate.round().toString()}"),
+                    Text("Frame Rate - ${_conf.frameRate!.round().toString()}"),
                     Slider(
-                      value: _frameRate,
+                      value: _conf.frameRate!,
                       min: 5,
                       max: 60,
                       divisions: 55,
-                      label: _frameRate.round().toString(),
+                      label: _conf.frameRate!.round().toString(),
                       onChanged: (value) {
                         innerSetState(() {
-                          _frameRate = value;
+                          _conf.frameRate = value;
                         });
-                        setState(() {
-                          _frameRate = _frameRate;
-                        });
+                        setState(() {});
                       },
-                      onChangeEnd: (value) => _prefs.setDouble("frameRate", _frameRate),
+                      onChangeEnd: (value) =>
+                          _prefs.setDouble("frameRate", _conf.frameRate!),
                     ),
                   ],
                 ),
@@ -217,9 +222,9 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
 
     files = files.where((element) => element.path != null).toList();
     List<String> paths = files.map((e) => e.path!).toList();
-    paths.insertAll(0, _filePaths);
+    paths.insertAll(0, _conf.filePaths!);
     setState(() {
-      _filePaths = paths;
+      _conf.filePaths = paths;
     });
     _savePreferences();
   }
@@ -259,7 +264,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         onPressed: () {
                           FilePicker.platform.clearTemporaryFiles();
                           setState(() {
-                            _filePaths = [];
+                            _conf.filePaths = [];
                           });
                           _resetPreferences();
                           Navigator.of(context).pop();
