@@ -86,6 +86,7 @@ jobs:
       - name: Publish appcast
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "[KUROMESI-BOT] publish appcast.yaml for v${{ env.VERSION }}"
+          branch: main
+          commit_message: "[KUROMESI-BOT] publish appcast.xml for v${{ env.VERSION }}"
           commit_options: '--signoff'
           commit_user_name: KUROMESI-BOT
