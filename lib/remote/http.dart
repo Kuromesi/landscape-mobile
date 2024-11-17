@@ -1,8 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:landscape/remote/apis/health_check.dart';
-import 'package:landscape/remote/apis/scroll_text.dart';
+import 'package:landscape/apis/apis.dart';
+import 'package:landscape/apis/health_check.dart';
+import 'package:landscape/apis/scroll_text.dart';
 import 'package:landscape/notifiers/notifier.dart';
 import 'dart:io';
 
@@ -11,6 +12,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:landscape/constants/constants.dart';
 import 'package:landscape/utils/utils.dart';
+import 'package:landscape/remote/remote_app.dart';
 
 Map<String, String> headers = {'Content-type': 'application/json'};
 
@@ -27,6 +29,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
   late HttpServer _server;
   bool _started = false;
   List<String> _logEntries = [];
+  int _port = 8080;
 
   @override
   void initState() {
@@ -66,7 +69,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
         )
         .addHandler(service.handler);
     try {
-      _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 8080);
+      _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, _port);
     } catch (e) {
       _log(e.toString());
       return;
@@ -131,8 +134,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
     );
   }
 
-  void _showSettingsDialog(BuildContext context) {
-    notifier!.updateConfiguration(ScrollTextConfiguration(text: "testttt"));
+  void _showServerConfiguration(BuildContext context) {
     showModalBottomSheet(
       isScrollControlled: true,
       context: context,
@@ -146,6 +148,76 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    SizedBox(
+                      width:
+                          MediaQuery.of(context).size.width * optionsBarWidth,
+                      child: TextFormField(
+                        decoration: InputDecoration(labelText: 'Port'),
+                        initialValue: _port.toString(),
+                        readOnly: _started,
+                        onChanged: (value) {
+                          innerSetState(() {
+                            _port = int.tryParse(value) ?? 8080;
+                          });
+                          setState(() {
+                            _port = _port;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSettingsDialog(BuildContext context) {
+    showModalBottomSheet(
+      isScrollControlled: true,
+      context: context,
+      builder: (BuildContext context) {
+        return SingleChildScrollView(
+          padding: MediaQuery.of(context).viewInsets,
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter innerSetState) {
+              return Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width:
+                          MediaQuery.of(context).size.width * optionsBarWidth,
+                      child: ElevatedButton(
+                        child: Text('Remote Mode'),
+                        onPressed: () {
+                          if (!_started) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('remote server not started')),
+                            );
+                            Navigator.pop(context);
+                          } else {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (context) => const LandscapeRemote()));
+                          }
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width:
+                          MediaQuery.of(context).size.width * optionsBarWidth,
+                      child: ElevatedButton(
+                        child: const Text('Server Configuration'),
+                        onPressed: () {
+                          _showServerConfiguration(context);
+                        },
+                      ),
+                    ),
                     SizedBox(
                       width:
                           MediaQuery.of(context).size.width * optionsBarWidth,
@@ -211,21 +283,61 @@ class ConfigureApi {
     try {
       ScrollTextConfiguration conf =
           ScrollTextConfiguration.fromJson(jsonDecode(body));
+      notifier!.updateScrollTextConfiguration(conf);
+    } catch (e) {
+      return Response.badRequest(body: e.toString());
+    }
+
+    return Response.ok("scroll text configuration successfully updated.");
+  }
+
+  Future<Response> _gifPlayer(Request request) async {
+    String body = await request.readAsString();
+    try {
+      GifConfiguration conf =
+          GifConfiguration.fromJson(jsonDecode(body));
+      notifier!.updateGifConfiguration(conf);
+    } catch (e) {
+      return Response.badRequest(body: e.toString());
+    }
+
+    return Response.ok("gif player configuration successfully updated.");
+  }
+
+  Future<Response> _remoteApp(Request request) async {
+    String body = await request.readAsString();
+    try {
+      RemoteAppState conf =
+          RemoteAppState.fromJson(jsonDecode(body));
       notifier!.updateConfiguration(conf);
     } catch (e) {
       return Response.badRequest(body: e.toString());
     }
 
-    return Response.ok(null);
+    return Response.ok("remote app configuration successfully updated.");
   }
+
 
   Future<Response> _configDump(Request request) async {
     try {
       Map<String, dynamic> config = Map();
       for (var k in configDump.keys) {
-        config[k] = configDump[k]!();
+        config[k] = configDump[k]!().toJson();
       }
       return Response.ok(encoding: utf8, headers: headers, jsonEncode(config));
+    } catch (e) {
+      return Response.internalServerError(body: e.toString());
+    }
+  }
+
+  Future<Response> _changeMode(Request request) async {
+    try {
+      if (request.requestedUri.queryParameters['mode'] == null) {
+        return Response.badRequest(body: 'mode is not specified');
+      }
+      notifier!.updateMode(request.requestedUri.queryParameters['mode']!);
+      return Response.ok(
+          "mode successfully updated to ${request.requestedUri.queryParameters['mode']}");
     } catch (e) {
       return Response.internalServerError(body: e.toString());
     }
@@ -235,10 +347,12 @@ class ConfigureApi {
     final router = shelf_router.Router();
 
     router.get('/', _messages);
+    router.get('/mode', _changeMode);
+    router.get('/config-dump', _configDump);
 
     router.post('/scroll-text', _scrollText);
-
-    router.get('/config-dump', _configDump);
+    router.post('/remote-app', _remoteApp);
+    router.post('/gif-player', _gifPlayer);
 
     return router;
   }

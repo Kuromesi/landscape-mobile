@@ -1,16 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:landscape/remote/apis/scroll_text.dart';
+import 'package:landscape/apis/apis.dart';
 
-ScrollTextNotifier? notifier;
+RemoteAppNotifier? notifier;
 
-class ScrollTextNotifier extends ChangeNotifier {
-  ScrollTextConfiguration _configuration =
-      ScrollTextConfiguration(text: '');
+class RemoteAppNotifier extends ChangeNotifier {
 
-  ScrollTextConfiguration get configuration => _configuration;
+  RemoteAppState conf = RemoteAppState(
+      mode: 'scrollText');
 
-  void updateConfiguration(ScrollTextConfiguration newConfig) {
-    _configuration = newConfig;
+  RemoteAppState get configuration => conf;
+
+  void updateConfiguration(RemoteAppState newConfig) {
+    conf = newConfig;
     notifyListeners();
   } 
+
+  void updateGifConfiguration(GifConfiguration newConfig) {
+    conf.gifConfig = newConfig;
+    notifyListeners();
+  }
+
+  void updateScrollTextConfiguration(ScrollTextConfiguration newConfig) {
+    conf.scrollTextConfig = newConfig;
+    notifyListeners();
+  }
+  
+  void updateMode(String newMode) {
+    conf.mode = newMode;
+    notifyListeners();
+  }
 }
