@@ -7,6 +7,7 @@ void main() {
   runApp(MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => RemoteAppNotifier()),
+        ChangeNotifierProvider(create: (context) => AppNotifier()),
       ],
       child: MyApp(),
     ),);

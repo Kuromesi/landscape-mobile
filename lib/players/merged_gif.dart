@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:landscape/gif_view/src/gif_frame.dart';
 import 'package:landscape/gif_view/gif_view.dart';
-import 'package:landscape/pages/gif_reader.dart';
+import 'package:landscape/players/gif_reader.dart';
 import 'package:landscape/gif_view/my_gif_view.dart';
 
 // MergedGifPlayer merge gifs into one and assign a single controller
