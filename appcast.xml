@@ -7,10 +7,10 @@
     <description>Most recent changes with links to updates.</description>
     <language>en</language>
     <item>
-      <title>Version 0.0.8</title>
-      <pubDate>Sun, 17 Nov 2024 19:03:56 +0800</pubDate>
+      <title>Version 0.0.9</title>
+      <pubDate>Tue, 4 Feb 2025 14:20:56 +0800</pubDate>
       <description>enhanced remote control (#11)</description>
-      <enclosure url="https://github.com/Kuromesi/landscape-mobile/releases/download/v0.0.8/app-release.apk" sparkle:version="0.0.8" length="22740019" type="application/octet-stream" />
+      <enclosure url="https://github.com/Kuromesi/landscape-mobile/releases/download/v0.0.9/app-release.apk" sparkle:version="0.0.9" length="23637311" type="application/octet-stream" />
     </item>
   </channel>
 </rss>
