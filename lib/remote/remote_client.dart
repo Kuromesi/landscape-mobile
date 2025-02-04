@@ -1,24 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:landscape/notifiers/notifier.dart';
-import 'package:json_annotation/json_annotation.dart';
-import 'package:landscape/players/players.dart';
-
-import 'package:landscape/apis/apis.dart';
 import 'package:landscape/utils/utils.dart';
-
-final _messangerKey = GlobalKey<ScaffoldMessengerState>();
-
-void notify(String text) {
-  final snackBar = SnackBar(
-    content: Text(text),
-    duration: const Duration(seconds: 2),
-  );
-  if (_messangerKey.currentState != null) {
-    _messangerKey.currentState!.showSnackBar(snackBar);
-  } else {
-    print("ScaffoldMessengerState is null, cannot show SnackBar.");
-  }
-}
+import 'package:landscape/app.dart';
 
 class LandscapeClient extends StatefulWidget {
   const LandscapeClient({super.key});
@@ -27,17 +10,7 @@ class LandscapeClient extends StatefulWidget {
 }
 
 class _LandscapeClientState extends State<LandscapeClient> {
-  final RemoteAppState _conf = RemoteAppState(
-      mode: configScrollText,
-      scrollTextConfig: ScrollTextConfiguration(),
-      gifConfig: GifConfiguration());
-
-  List<Map<String, dynamic>> _devices = [{'ip': '192.168.1.1', 'port': 8080},{'ip': '192.168.1.1', 'port': 8080},{'ip': '192.168.1.1', 'port': 8080},{'ip': '192.168.1.1', 'port': 8080},{'ip': '192.168.1.1', 'port': 8080}];
-
-  RemotePairer _remotePairer = RemotePairer();
-
-  bool _paired = false;
-  bool _syncing = false;
+  RemotePairer _remotePairer = remotePairer();
 
   String _manualIp = '';
   int _manualPort = 0;
@@ -55,40 +28,134 @@ class _LandscapeClientState extends State<LandscapeClient> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _messangerKey,
-     body: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-            Text('Paired Devices:'),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Added Devices:'),
             Expanded(
               child: ListView.builder(
-                itemCount: _devices.length,
+                itemCount: _remotePairer.availableDevices.length,
                 itemBuilder: (context, index) {
-                  final device = _devices[index];
+                  final device = _remotePairer.availableDevices[index];
+                  final isPaired = device['ip'] == _remotePairer.pairedIp &&
+                      device['port'] == _remotePairer.pairedPort;
                   return InkWell(
-                  onTap: () {
-                    // 处理点击事件
-                    print('Device clicked: ${device['ip']}:${device['port']}');
-                  },
-                  child: Container(
-                    width: double.infinity, // 宽度与屏幕宽度相同
-                    padding: EdgeInsets.all(32.0),
-
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey, width: 1.0),
+                    onTap: () async {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Device Control'),
+                            content: const Text('Pair or delete the device'),
+                            actions: <Widget>[
+                              TextButton(
+                                child: const Text('Pair'),
+                                onPressed: () async {
+                                  Navigator.of(context).pop();
+                                  if (!await _remotePairer.pair(
+                                      device['ip'], device['port'])) {
+                                    scaffoldMessengerKey.currentState
+                                        ?.showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Failed to pair device'),
+                                      ),
+                                    );
+                                  } else {
+                                    scaffoldMessengerKey.currentState
+                                        ?.showSnackBar(
+                                      const SnackBar(
+                                        content:
+                                            Text('Device paired successfully'),
+                                      ),
+                                    );
+                                    setState(() {});
+                                  }
+                                },
+                              ),
+                              TextButton(
+                                child: const Text('Delete'),
+                                onPressed: () async {
+                                  Navigator.of(context).pop();
+                                  _remotePairer.removeDevice(
+                                      device['ip'], device['port']);
+                                  setState(() {});
+                                },
+                              ),
+                              TextButton(
+                                child: const Text('Cancel'),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity, // 宽度与屏幕宽度相同
+                      padding: const EdgeInsets.all(32.0),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey, width: 1.0),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${device['ip']}:${device['port']}',
+                            style: const TextStyle(fontSize: 16.0),
+                          ),
+                          if (isPaired)
+                            InkWell(
+                              onTap: () async {
+                                // 显示确认对话框
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      title: const Text('Confirm Unpairing'),
+                                      content: const Text(
+                                          'Are you sure you want to unpair this device?'),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          child: const Text('Cancel'),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        ),
+                                        TextButton(
+                                            child: const Text('Unpair'),
+                                            onPressed: () async {
+                                              Navigator.of(context).pop();
+                                              _remotePairer.unpair();
+                                              scaffoldMessengerKey.currentState
+                                                  ?.showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                      'Device unpaired successfully'),
+                                                ),
+                                              );
+                                              appNotifier!.updateAppState(
+                                                  appNotifier!.appState);
+                                              setState(() {});
+                                            }),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                              child: const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    child: Center(
-                      child: Text(
-                      '${device['ip']}:${device['port']}',
-                      style: TextStyle(fontSize: 16.0),
-                    ),
-                    ),
-                    
-                  ),
-                );
+                  );
                 },
               ),
             ),
@@ -96,62 +163,64 @@ class _LandscapeClientState extends State<LandscapeClient> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-            heroTag: "pair",
-            onPressed: () => {_showPairDialog(context)},
-            child: Icon(Icons.add),
-          ),
+        heroTag: "pair",
+        onPressed: () => {_showPairDialog(context)},
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
   void _showPairDialog(BuildContext context) {
-  showModalBottomSheet(
-    isScrollControlled: true,
-    context: context,
-    builder: (BuildContext context) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
-        child: SingleChildScrollView(
-          padding: MediaQuery.of(context).viewInsets,
-          child: Column(
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  _showManualPairDialog(context);
-                },
-                child: Text('Manaul Pair'),
-              ),
-              SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () {
-                  // _autoPair();
-                },
-                child: Text('Auto Pair'),
-              ),
-            ],
+    showModalBottomSheet(
+      isScrollControlled: true,
+      context: context,
+      builder: (BuildContext context) {
+        return ConstrainedBox(
+          constraints:
+              BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    _showManualPairDialog(context);
+                  },
+                  child: const Text('Add Device'),
+                ),
+                // const SizedBox(height: 10),
+                // ElevatedButton(
+                //   onPressed: () {
+                //     // _autoPair();
+                //   },
+                //   child: const Text('Auto Pair'),
+                // ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   void _showManualPairDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Manual Pair'),
+          title: const Text('Add Device'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                decoration: InputDecoration(labelText: 'IP 地址'),
+                decoration: const InputDecoration(labelText: 'IP Address'),
                 onChanged: (value) {
                   _manualIp = value;
                 },
               ),
               TextField(
-                decoration: InputDecoration(labelText: '端口'),
+                decoration: const InputDecoration(labelText: 'Port'),
                 keyboardType: TextInputType.number,
                 onChanged: (value) {
                   _manualPort = int.tryParse(value) ?? 0;
@@ -164,16 +233,18 @@ class _LandscapeClientState extends State<LandscapeClient> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
                 if (_manualIp.isNotEmpty && _manualPort > 0) {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
                   showDialog(
                     context: context,
                     barrierDismissible: false,
                     builder: (BuildContext context) {
-                      return Dialog(
+                      return const Dialog(
                         child: Padding(
                           padding: const EdgeInsets.all(20.0),
                           child: Column(
@@ -181,29 +252,37 @@ class _LandscapeClientState extends State<LandscapeClient> {
                             children: [
                               CircularProgressIndicator(),
                               SizedBox(height: 16),
-                              Text('pairing...'),
+                              Text('Adding device...'),
                             ],
                           ),
                         ),
                       );
                     },
                   );
-                  bool paired = await _remotePairer.isDeviceAvailable(
+                  bool available = await _remotePairer.isDeviceAvailable(
                       _manualIp, _manualPort);
-                  if (paired) {
-                    _devices.add({'ip': _manualIp, 'port': _manualPort});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('paired')),
+                  if (available) {
+                    _remotePairer.addDevice(_manualIp, _manualPort);
+                    scaffoldMessengerKey.currentState?.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Successfully add device $_manualIp:$_manualPort'),
+                      ),
                     );
+                    Navigator.of(context).pop();
+                    setState(() {});
                   } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('pair failed')),
+                    Navigator.of(context).pop();
+                    scaffoldMessengerKey.currentState?.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Failed to add device, please check connectivity first'),
+                      ),
                     );
                   }
-                  Navigator.of(context).pop();
                 }
               },
-              child: Text('Confirm'),
+              child: const Text('Confirm'),
             ),
           ],
         );

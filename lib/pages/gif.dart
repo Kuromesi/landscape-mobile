@@ -20,7 +20,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  GifConfiguration _conf = appNotifier!.gifConfig;
+  GifConfiguration _conf = gifNotifier!.gifConfig;
 
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
@@ -28,8 +28,8 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   void initState() {
     _loadPreferences();
     configDump[configGif] = exportState;
-    appNotifier!.addListener(listener);
-    appNotifier!.gifConfig = _conf;
+    gifNotifier!.addListener(listener);
+    gifNotifier!.gifConfig = _conf;
     super.initState();
   }
 
@@ -37,7 +37,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   void dispose() {
     configDump.remove(configGif);
     _savePreferences();
-    appNotifier!.removeListener(listener);
+    gifNotifier!.removeListener(listener);
     super.dispose();
   }
 
@@ -46,15 +46,19 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   }
 
   void listener() {
-    _conf = appNotifier!.gifConfig;
+    _conf = gifNotifier!.gifConfig;
     setState(() {});
+  }
+
+  void rerender() {
+    gifNotifier!.updateGifConfig(_conf);
   }
 
   Future<void> _loadPreferences() async {
     _conf.filePaths = await _prefs.getStringList("files") ?? [];
     _conf.frameRate = await _prefs.getDouble("frameRate") ?? 15.0;
     _conf.loop = await _prefs.getBool("loop") ?? true;
-    appNotifier!.updateGifConfig(_conf);
+    gifNotifier!.updateGifConfig(_conf);
   }
 
   Future<void> _savePreferences() async {
@@ -95,7 +99,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
       },
       onDoubleTap: () {
         _conf.filePaths!.remove(path);
-        appNotifier!.updateGifConfig(_conf);
+        rerender();
       },
       child: image,
     );
@@ -117,7 +121,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
             ),
             SizedBox(height: 16),
             FloatingActionButton(
-              heroTag: "settings",
+              heroTag: "gif_settings",
               onPressed: () => {_showSettingsDialog(context)},
               child: Icon(Icons.menu),
             ),
@@ -193,7 +197,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         innerSetState(() {
                           _conf.frameRate = value;
                         });
-                        appNotifier!.updateGifConfig(_conf);
+                        rerender();
                       },
                       onChangeEnd: (value) =>
                           _prefs.setDouble("frameRate", _conf.frameRate!),
@@ -228,7 +232,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     List<String> paths = files.map((e) => e.path!).toList();
     paths.insertAll(0, _conf.filePaths!);
     _conf.filePaths = paths;
-    appNotifier!.updateGifConfig(_conf);
+    rerender();
     _savePreferences();
   }
 
@@ -267,7 +271,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         onPressed: () {
                           FilePicker.platform.clearTemporaryFiles();
                           _conf.filePaths = [];
-                          appNotifier!.updateGifConfig(_conf);
+                          rerender();
                           _resetPreferences();
                           Navigator.of(context).pop();
                         },

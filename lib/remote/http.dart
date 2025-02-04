@@ -12,9 +12,11 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:landscape/constants/constants.dart';
 import 'package:landscape/utils/utils.dart';
-import 'package:landscape/remote/remote_app.dart';
+import 'package:flutter_logs/flutter_logs.dart';
+
 
 Map<String, String> headers = {'Content-type': 'application/json'};
+String _logTag = "HttpServer";
 
 class RemoteHttpServerPage extends StatefulWidget {
   @override
@@ -25,6 +27,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+  int _maxLogLength = 100;
 
   late HttpServer _server;
   bool _started = false;
@@ -37,6 +40,9 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
   }
 
   void _log(String message) {
+    if (_logEntries.length > _maxLogLength) {
+      _logEntries.removeAt(0);
+    }
     _logEntries.add(message);
     if (!mounted) return;
     setState(() {
@@ -61,9 +67,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
         .addMiddleware(
           (handler) => (request) async {
             final response = await handler(request);
-            print(response.headers);
-            // you could read the body here, but you'd also need to
-            // save the content and pipe it into a new response instance
+            FlutterLogs.logInfo(_logTag, "", response.headers.toString());
             return response;
           },
         )
@@ -71,6 +75,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
     try {
       _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, _port);
     } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
       _log(e.toString());
       return;
     }
@@ -94,6 +99,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return _buildPage(context);
   }
 
@@ -110,7 +116,7 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
           ),
           SizedBox(height: 16),
           FloatingActionButton(
-            heroTag: "settings",
+            heroTag: "http_settings",
             onPressed: () => {_showSettingsDialog(context)},
             child: Icon(Icons.menu),
           ),
@@ -193,25 +199,6 @@ class _RemoteHttpServerPageState extends State<RemoteHttpServerPage>
                       width:
                           MediaQuery.of(context).size.width * optionsBarWidth,
                       child: ElevatedButton(
-                        child: Text('Remote Mode'),
-                        onPressed: () {
-                          if (!_started) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('remote server not started')),
-                            );
-                            Navigator.pop(context);
-                          } else {
-                            Navigator.of(context).push(MaterialPageRoute(
-                                builder: (context) => const LandscapeRemote()));
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(
-                      width:
-                          MediaQuery.of(context).size.width * optionsBarWidth,
-                      child: ElevatedButton(
                         child: const Text('Server Configuration'),
                         onPressed: () {
                           _showServerConfiguration(context);
@@ -257,7 +244,6 @@ class Service {
 
 class HealthCheck {
   Future<Response> _livez(Request request) async {
-    print(LivezResponse(isAlive: true).toJson().toString());
     return Response.ok(
         encoding: utf8,
         headers: headers,
@@ -278,45 +264,18 @@ class ConfigureApi {
     return Response.ok('Apis for configuring players.\n');
   }
 
-  Future<Response> _scrollText(Request request) async {
-    String body = await request.readAsString();
-    try {
-      ScrollTextConfiguration conf =
-          ScrollTextConfiguration.fromJson(jsonDecode(body));
-      notifier!.updateScrollTextConfiguration(conf);
-    } catch (e) {
-      return Response.badRequest(body: e.toString());
-    }
-
-    return Response.ok("scroll text configuration successfully updated.");
-  }
-
-  Future<Response> _gifPlayer(Request request) async {
-    String body = await request.readAsString();
-    try {
-      GifConfiguration conf =
-          GifConfiguration.fromJson(jsonDecode(body));
-      notifier!.updateGifConfiguration(conf);
-    } catch (e) {
-      return Response.badRequest(body: e.toString());
-    }
-
-    return Response.ok("gif player configuration successfully updated.");
-  }
-
   Future<Response> _remoteApp(Request request) async {
     String body = await request.readAsString();
     try {
-      RemoteAppState conf =
-          RemoteAppState.fromJson(jsonDecode(body));
+      RemoteAppState conf = RemoteAppState.fromJson(jsonDecode(body));
       notifier!.updateConfiguration(conf);
     } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
       return Response.badRequest(body: e.toString());
     }
 
     return Response.ok("remote app configuration successfully updated.");
   }
-
 
   Future<Response> _configDump(Request request) async {
     try {
@@ -326,6 +285,7 @@ class ConfigureApi {
       }
       return Response.ok(encoding: utf8, headers: headers, jsonEncode(config));
     } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
       return Response.internalServerError(body: e.toString());
     }
   }
@@ -339,6 +299,7 @@ class ConfigureApi {
       return Response.ok(
           "mode successfully updated to ${request.requestedUri.queryParameters['mode']}");
     } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
       return Response.internalServerError(body: e.toString());
     }
   }
@@ -350,10 +311,97 @@ class ConfigureApi {
     router.get('/mode', _changeMode);
     router.get('/config-dump', _configDump);
 
-    router.post('/scroll-text', _scrollText);
     router.post('/remote-app', _remoteApp);
-    router.post('/gif-player', _gifPlayer);
 
+    router.mount('/scroll-text', ScrollTextConfigurationApi().router.call);
+    router.mount('/gif-player', GifConfigurationApi().router.call);
+    router.mount('/app', AppConfigureApi().router.call);
+
+    return router;
+  }
+}
+
+class GifConfigurationApi {
+  Future<Response> _messages(Request request) async {
+    return Response.ok('Apis for configuring gif player.\n');
+  }
+
+  Future<Response> _gifPlayer(Request request) async {
+    String body = await request.readAsString();
+    try {
+      GifConfiguration conf = GifConfiguration.fromJson(jsonDecode(body));
+      gifNotifier!.updateGifConfig(conf);
+    } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      return Response.badRequest(body: e.toString());
+    }
+
+    return Response.ok("gif player configuration successfully updated.");
+  }
+
+  shelf_router.Router get router {
+    final router = shelf_router.Router();
+
+    router.get('/', _messages);
+
+    router.post('/full', _gifPlayer);
+    return router;
+  }
+}
+
+class ScrollTextConfigurationApi {
+  Future<Response> _messages(Request request) async {
+    return Response.ok('Apis for configuring scroll text.\n');
+  }
+
+  Future<Response> _scrollText(Request request) async {
+    String body = await request.readAsString();
+    try {
+      ScrollTextConfiguration conf =
+          ScrollTextConfiguration.fromJson(jsonDecode(body));
+      scrollTextNotifier!.updateScrollTextConfig(conf);
+    } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      return Response.badRequest(body: e.toString());
+    }
+
+    return Response.ok("scroll text configuration successfully updated.");
+  }
+
+  shelf_router.Router get router {
+    final router = shelf_router.Router();
+
+    router.get('/', _messages);
+
+    router.post('/full', _scrollText);
+    return router;
+  }
+}
+
+class AppConfigureApi {
+  Future<Response> _messages(Request request) async {
+    return Response.ok('Apis for configuring landscape application.\n');
+  }
+
+  Future<Response> _app(Request request) async {
+    String body = await request.readAsString();
+    try {
+      AppState conf = AppState.fromJson(jsonDecode(body));
+      appNotifier!.updateAppState(conf);
+    } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      return Response.badRequest(body: e.toString());
+    }
+
+    return Response.ok("app configuration successfully updated.");
+  }
+
+  shelf_router.Router get router {
+    final router = shelf_router.Router();
+
+    router.get('/', _messages);
+
+    router.post('/full', _app);
     return router;
   }
 }

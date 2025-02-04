@@ -14,11 +14,17 @@ import 'package:landscape/notifiers/notifier.dart';
 import 'package:landscape/utils/utils.dart';
 import 'apis/apis.dart';
 
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     notifier = Provider.of<RemoteAppNotifier>(context, listen: false);
     appNotifier = Provider.of<AppNotifier>(context, listen: false);
+    gifNotifier = Provider.of<GifNotifier>(context, listen: false);
+    scrollTextNotifier = Provider.of<ScrollTextNotifier>(context, listen: false);
+
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
     return const Landscape();
   }
@@ -33,14 +39,14 @@ class Landscape extends StatefulWidget {
 Map<String, int> routePageMap = {
   '/gif': 1,
   '/scroll-text': 2,
-  '/remote-http': 3,
+  '/remote-server': 3,
   '/remote-client': 4,
 };
 
 Map<int, String> pageRouteMap = {
   1: '/gif',
   2: '/scroll-text',
-  3: '/remote-http',
+  3: '/remote-server',
   4: '/remote-client',
 };
 
@@ -91,16 +97,16 @@ class _LandscapeState extends State<Landscape> {
       });
       _pageIndex = routePageMap[_conf.currentPage] ?? 0;
       _pageController.jumpToPage(_pageIndex);
+      WakelockPlus.toggle(enable: _conf.keepScreenOn!);
     }
   }
 
   Future<void> _loadPreferences() async {
     _conf.isDarkTheme = await _prefs.getBool('isDarkTheme') ?? false;
     _conf.keepScreenOn = await _prefs.getBool('keepScreenOn') ?? false;
-    setState(() {
-      _conf.isDarkTheme = _conf.isDarkTheme;
-      _conf.keepScreenOn = _conf.keepScreenOn;
-    });
+    _conf.isDarkTheme = _conf.isDarkTheme;
+    _conf.keepScreenOn = _conf.keepScreenOn;
+    appNotifier!.updateAppState(_conf);
   }
 
   Future<void> _savePreferences() async {
@@ -110,24 +116,29 @@ class _LandscapeState extends State<Landscape> {
   }
 
   void _toggleTheme() {
-    setState(() {
-      _conf.isDarkTheme = !_conf.isDarkTheme!;
-    });
+    _conf.isDarkTheme = !_conf.isDarkTheme!;
+    rerender();
     _prefs.setBool("isDarkTheme", _conf.isDarkTheme!);
+  }
+
+  void rerender() {
+    appNotifier!.updateAppState(_conf);
+    if (remotePairer().remoteControlEnabled) {
+      remoteNotifier.updateAppState(_conf);
+    }
   }
 
   void _showPage(String page) {
     _pageIndex = routePageMap[page] ?? 0;
     _conf.currentPage = pageRouteMap[_pageIndex];
-    appNotifier!.updateAppState(_conf);
+    rerender();
   }
 
   void _toggleKeepScreenOn(BuildContext context) {
     _conf.keepScreenOn = !_conf.keepScreenOn!;
     WakelockPlus.toggle(enable: _conf.keepScreenOn!);
-    setState(() {
-      _conf.keepScreenOn = _conf.keepScreenOn;
-    });
+    _conf.keepScreenOn = _conf.keepScreenOn;
+    rerender();
     final snackBar = SnackBar(
       content:
           Text(_conf.keepScreenOn! ? 'Wakelock Enabled' : 'Wakelock Disabled'),
@@ -136,9 +147,28 @@ class _LandscapeState extends State<Landscape> {
     ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
+  void _toggleRemoteControl() {
+    RemotePairer p = remotePairer();
+    if (!p.remoteControlEnabled) {
+      if (!p.paired) {
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Must pair a remote device first'),
+          ),
+        );
+        return;
+      }
+      p.enableRemoteControl();
+    } else {
+      p.disableRemoteControl();
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: ThemeData(
         primarySwatch: _conf.isDarkTheme! ? Colors.grey : Colors.purple,
         brightness: _conf.isDarkTheme! ? Brightness.dark : Brightness.light,
@@ -149,6 +179,23 @@ class _LandscapeState extends State<Landscape> {
         appBar: AppBar(
           title: const Text('Landscape'),
           actions: [
+            GestureDetector(
+              onLongPress: () {
+                final pairedIp = remotePairer().pairedIp;
+                final pairedPort = remotePairer().pairedPort;
+                final snackBar = SnackBar(
+                  content: Text('Paired device: $pairedIp:$pairedPort'),
+                  duration: const Duration(seconds: 3),
+                );
+                scaffoldMessengerKey.currentState?.showSnackBar(snackBar);
+              },
+              child: IconButton(
+                icon: remotePairer().remoteControlEnabled
+                    ? Icon(Icons.wifi)
+                    : Icon(Icons.wifi_off),
+                onPressed: _toggleRemoteControl,
+              ),
+            ),
             IconButton(
               icon: Icon(
                   _conf.isDarkTheme! ? Icons.wb_sunny : Icons.nightlight_round),
@@ -159,7 +206,7 @@ class _LandscapeState extends State<Landscape> {
                 icon: Icon(_conf.keepScreenOn! ? Icons.lock : Icons.lock_open),
                 onPressed: () => _toggleKeepScreenOn(context),
               ),
-            )
+            ),
           ],
         ),
         body: UpgradeAlert(
@@ -193,9 +240,9 @@ class _LandscapeState extends State<Landscape> {
                 },
               ),
               ListTile(
-                title: const Text('Remote HTTP Server'),
+                title: const Text('Remote Server'),
                 onTap: () {
-                  _showPage("/remote-http");
+                  _showPage("/remote-server");
                 },
               ),
               ListTile(

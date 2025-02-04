@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:landscape/constants/constants.dart';
 import 'package:landscape/notifiers/notifier.dart';
-import 'package:text_scroll/text_scroll.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,15 +21,15 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   @override
   bool get wantKeepAlive => true;
 
-  ScrollTextConfiguration _conf = appNotifier!.scrollTextConfig;
+  ScrollTextConfiguration _conf = scrollTextNotifier!.scrollTextConfig;
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
   @override
   void initState() {
     _loadPreferences();
     configDump[configScrollText] = exportState;
-    appNotifier!.addListener(listener);
-    appNotifier!.scrollTextConfig = _conf;
+    scrollTextNotifier!.addListener(listener);
+    scrollTextNotifier!.scrollTextConfig = _conf;
     super.initState();
   }
 
@@ -38,7 +37,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   void dispose() {
     _savePreferences();
     configDump.remove(configScrollText);
-    appNotifier!.removeListener(listener);
+    scrollTextNotifier!.removeListener(listener);
     super.dispose();
   }
 
@@ -49,8 +48,15 @@ class _ScrollTextPageState extends State<ScrollTextPage>
   void listener() {
     if (mounted) {
       setState(() {
-        _conf = appNotifier!.scrollTextConfig;
+        _conf = scrollTextNotifier!.scrollTextConfig;
       });
+    }
+  }
+
+  void rerender() {
+    scrollTextNotifier!.updateScrollTextConfig(_conf);
+    if (remotePairer().remoteControlEnabled) {
+      remoteNotifier.updateScrollTextConfig(_conf);
     }
   }
 
@@ -62,7 +68,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
     _conf.adaptiveColor =
         await _prefs.getBool("scrollTextAdaptiveColor") ?? true;
     _conf.scrollSpeed = await _prefs.getDouble("scrollTextScrollSpeed") ?? 1.0;
-    appNotifier!.updateScrollTextConfig(_conf);
+    scrollTextNotifier!.updateScrollTextConfig(_conf);
   }
 
   Future<void> _savePreferences() async {
@@ -97,7 +103,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                         innerSetState(() {
                           _conf.text = value;
                         });
-                        appNotifier!.updateScrollTextConfig(_conf);
+                        rerender();
                       },
                     ),
                     DropdownButtonFormField<TextDirection>(
@@ -118,7 +124,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                         innerSetState(() {
                           _conf.direction = value!.name;
                         });
-                        appNotifier!.updateScrollTextConfig(_conf);
+                        rerender();
                       },
                       decoration:
                           const InputDecoration(labelText: 'Scroll Direction'),
@@ -135,7 +141,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                         });
                       },
                       onChangeEnd: (value) =>
-                          appNotifier!.updateScrollTextConfig(_conf),
+                          rerender(),
                     ),
                     Text('Font Size: ${_conf.fontSize!.round()}'),
                     Slider(
@@ -150,7 +156,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                         });
                       },
                       onChangeEnd: (value) =>
-                          appNotifier!.updateScrollTextConfig(_conf),
+                          rerender(),
                     ),
                     Text('Scroll Speed: ${(_conf.scrollSpeed)}'),
                     Row(
@@ -172,7 +178,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                                         _conf.fontColor = color.value;
                                       });
                                       _conf.adaptiveColor = false;
-                                      appNotifier!
+                                      scrollTextNotifier!
                                           .updateScrollTextConfig(_conf);
                                     },
                                   ),
@@ -185,7 +191,7 @@ class _ScrollTextPageState extends State<ScrollTextPage>
                                         _conf.fontColor = null;
                                       });
                                       _conf.adaptiveColor = true;
-                                      appNotifier!
+                                      scrollTextNotifier!
                                           .updateScrollTextConfig(_conf);
                                     },
                                   ),
