@@ -128,11 +128,6 @@ class RemotePairer {
     } catch (e) {
       FlutterLogs.logError(_logTag, "", e.toString());
     }
-    scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text('Device not available, $ip:$port'),
-      ),
-    );
     return false;
   }
 

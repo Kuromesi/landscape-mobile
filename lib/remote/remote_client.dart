@@ -42,6 +42,43 @@ class _LandscapeClientState extends State<LandscapeClient> {
                       device['port'] == _remotePairer.pairedPort;
                   return InkWell(
                     onTap: () async {
+                      if (isPaired) {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: const Text('Confirm Unpairing'),
+                              content: const Text(
+                                  'Are you sure you want to unpair this device?'),
+                              actions: <Widget>[
+                                TextButton(
+                                    child: const Text('Unpair'),
+                                    onPressed: () async {
+                                      Navigator.of(context).pop();
+                                      _remotePairer.unpair();
+                                      scaffoldMessengerKey.currentState
+                                          ?.showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Device unpaired successfully'),
+                                        ),
+                                      );
+                                      appNotifier!.updateAppState(
+                                          appNotifier!.appState);
+                                      setState(() {});
+                                    }),
+                                TextButton(
+                                  child: const Text('Cancel'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                        return;
+                      }
                       showDialog(
                         context: context,
                         builder: (BuildContext context) {
@@ -94,7 +131,7 @@ class _LandscapeClientState extends State<LandscapeClient> {
                       );
                     },
                     child: Container(
-                      width: double.infinity, // 宽度与屏幕宽度相同
+                      width: double.infinity,
                       padding: const EdgeInsets.all(32.0),
                       decoration: const BoxDecoration(
                         border: Border(
@@ -109,45 +146,8 @@ class _LandscapeClientState extends State<LandscapeClient> {
                             style: const TextStyle(fontSize: 16.0),
                           ),
                           if (isPaired)
-                            InkWell(
-                              onTap: () async {
-                                // 显示确认对话框
-                                showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AlertDialog(
-                                      title: const Text('Confirm Unpairing'),
-                                      content: const Text(
-                                          'Are you sure you want to unpair this device?'),
-                                      actions: <Widget>[
-                                        TextButton(
-                                          child: const Text('Cancel'),
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
-                                          },
-                                        ),
-                                        TextButton(
-                                            child: const Text('Unpair'),
-                                            onPressed: () async {
-                                              Navigator.of(context).pop();
-                                              _remotePairer.unpair();
-                                              scaffoldMessengerKey.currentState
-                                                  ?.showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                      'Device unpaired successfully'),
-                                                ),
-                                              );
-                                              appNotifier!.updateAppState(
-                                                  appNotifier!.appState);
-                                              setState(() {});
-                                            }),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                              child: const Icon(
+                            const InkWell(
+                              child: Icon(
                                 Icons.check_circle,
                                 color: Colors.green,
                               ),
@@ -261,6 +261,7 @@ class _LandscapeClientState extends State<LandscapeClient> {
                   );
                   bool available = await _remotePairer.isDeviceAvailable(
                       _manualIp, _manualPort);
+                  Navigator.of(context).pop();
                   if (available) {
                     _remotePairer.addDevice(_manualIp, _manualPort);
                     scaffoldMessengerKey.currentState?.showSnackBar(
@@ -269,10 +270,8 @@ class _LandscapeClientState extends State<LandscapeClient> {
                             'Successfully add device $_manualIp:$_manualPort'),
                       ),
                     );
-                    Navigator.of(context).pop();
                     setState(() {});
                   } else {
-                    Navigator.of(context).pop();
                     scaffoldMessengerKey.currentState?.showSnackBar(
                       const SnackBar(
                         content: Text(

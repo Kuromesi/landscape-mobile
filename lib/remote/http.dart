@@ -14,7 +14,6 @@ import 'package:landscape/constants/constants.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:flutter_logs/flutter_logs.dart';
 
-
 Map<String, String> headers = {'Content-type': 'application/json'};
 String _logTag = "HttpServer";
 
@@ -308,7 +307,6 @@ class ConfigureApi {
     final router = shelf_router.Router();
 
     router.get('/', _messages);
-    router.get('/mode', _changeMode);
     router.get('/config-dump', _configDump);
 
     router.post('/remote-app', _remoteApp);
@@ -339,12 +337,34 @@ class GifConfigurationApi {
     return Response.ok("gif player configuration successfully updated.");
   }
 
+  Future<Response> _play(Request request) async {
+    try {
+      gifNotifier!.play();
+    } catch(e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      return Response.badRequest(body: e.toString());
+    }
+    return Response.ok("gif player successfully played.");
+  }
+
+  Future<Response> _stop(Request request) async {
+    try {
+      gifNotifier!.stop();
+    } catch(e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      return Response.badRequest(body: e.toString());
+    }
+    return Response.ok("gif player successfully stopped.");
+  }
+
   shelf_router.Router get router {
     final router = shelf_router.Router();
 
     router.get('/', _messages);
 
     router.post('/full', _gifPlayer);
+    router.get('/play', _play);
+    router.get('/stop', _stop);
     return router;
   }
 }

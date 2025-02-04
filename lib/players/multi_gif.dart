@@ -49,6 +49,10 @@ class _MultiGifPlayerState extends State<MultiGifPlayer> {
             }
             if (!mounted) return;
             _next = true;
+            if (_gifs.length == 1) {
+              _gifControllerList[_currentGif].play();
+              return;
+            }
             setState(
               () {
                 _currentGif = (_currentGif + 1) % _gifs.length;

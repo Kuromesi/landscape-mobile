@@ -10,6 +10,7 @@ import 'package:landscape/constants/constants.dart';
 import 'package:landscape/players/players.dart';
 import 'package:landscape/apis/apis.dart';
 import 'package:json_annotation/json_annotation.dart';
+import 'package:landscape/app.dart';
 
 class GifPage extends StatefulWidget {
   @override
@@ -47,7 +48,14 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
 
   void listener() {
     _conf = gifNotifier!.gifConfig;
-    setState(() {});
+    if (gifNotifier!.isPlay()) {
+      _play();
+    } else {
+      navigatorKey.currentState?.popUntil((route) {
+        return route.isFirst;
+      });
+      setState(() {});
+    }
   }
 
   void rerender() {
@@ -116,7 +124,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
           children: [
             FloatingActionButton(
               heroTag: "play_gif",
-              onPressed: () => {_playGifs(context)},
+              onPressed: _playGifs,
               child: Icon(Icons.play_arrow),
             ),
             SizedBox(height: 16),
@@ -160,14 +168,43 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     return images;
   }
 
-  void _playGifs(BuildContext context) {
-    Navigator.push(
-      context,
+  void _play() {
+    navigatorKey.currentState?.popUntil((route) {
+      return route.isFirst;
+    });
+    navigatorKey.currentState?.push(
       MaterialPageRoute(
         builder: (context) => MultiGifPlayer(
             gifs: _conf.filePaths!, frameRate: _conf.frameRate!.round()),
       ),
     );
+  }
+
+  void _playGifs() {
+    if (remotePairer().remoteControlEnabled) {
+      remoteNotifier.playGif();
+      showDialog(
+        context: navigatorKey.currentContext!,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Gif Player'),
+            content: const Text('Playing'),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Quit'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  remoteNotifier.stopGif();
+                },
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+    _play();
   }
 
   void _configureGifPlay(BuildContext context) {

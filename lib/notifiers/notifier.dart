@@ -86,6 +86,13 @@ class GifNotifier extends ChangeNotifier {
     filePaths: [],
     loop: true,
   );
+  bool _played = false;
+
+  bool isPlay() {
+    bool t = _played;
+    _played = false;
+    return t;
+  }
 
   GifConfiguration get gifConfig => _gifConfig;
 
@@ -97,6 +104,16 @@ class GifNotifier extends ChangeNotifier {
     _gifConfig = newConfig;
     notifyListeners();
   }
+
+  void play() {
+    _played = true;
+    notifyListeners();
+  }
+
+  void stop() {
+    _played = false;
+    notifyListeners();
+  }
 }
 
 RemoteNotifier remoteNotifier = RemoteNotifier();
@@ -105,10 +122,25 @@ class RemoteNotifier {
   final String _logTag = "RemoteNotifier";
   final RemotePairer _pairer = remotePairer();
 
+  String convertToUnicode(String text) {
+    final List<String> commonChineseSymbols = ['，', '。', '！', '？', '；', '：', '“', '”', '‘', '’', '《', '》', '（', '）', '【', '】', '—', '…', '、'];
+    return text.split('').map((char) {
+      int codeUnit = char.codeUnitAt(0);
+      if ((codeUnit >= 0x4e00 && codeUnit <= 0x9fa5) ||
+          (commonChineseSymbols.contains(char))) {
+        return '\\u${codeUnit.toRadixString(16).padLeft(4, '0')}';
+      } else {
+        return char;
+      }
+    }).join('');
+  }
+
   HttpClientRequest _decorateRequest(
       HttpClientRequest request, Map<String, dynamic> body) {
     request.headers.set('content-type', 'application/json');
-    request.write(jsonEncode(body));
+    String encoded = jsonEncode(body);
+    encoded = convertToUnicode(encoded);
+    request.write(encoded);
     return request;
   }
 
@@ -160,6 +192,48 @@ class RemoteNotifier {
         const SnackBar(
           content: Text(
               'Failed to update gif config, please check remote device connectivity'),
+        ),
+      );
+    }
+  }
+
+  Future<void> playGif() async {
+    try {
+      HttpClient client = HttpClient();
+      client.connectionTimeout = Duration(seconds: 1);
+      HttpClientRequest request = await client.get(
+          _pairer.pairedIp, _pairer.pairedPort, '/configure/gif-player/play');
+      HttpClientResponse response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception("failed to play gif");
+      }
+    } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Failed to play gif config, please check remote device connectivity'),
+        ),
+      );
+    }
+  }
+
+  Future<void> stopGif() async {
+    try {
+      HttpClient client = HttpClient();
+      client.connectionTimeout = Duration(seconds: 1);
+      HttpClientRequest request = await client.get(
+          _pairer.pairedIp, _pairer.pairedPort, '/configure/gif-player/stop');
+      HttpClientResponse response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception("failed to stop playing gif");
+      }
+    } catch (e) {
+      FlutterLogs.logError(_logTag, "", e.toString());
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Failed to stop playing gif config, please check remote device connectivity'),
         ),
       );
     }

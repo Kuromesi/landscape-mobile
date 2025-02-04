@@ -17,6 +17,8 @@ import 'apis/apis.dart';
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -95,6 +97,9 @@ class _LandscapeState extends State<Landscape> {
       setState(() {
         _conf = appNotifier!.appState;
       });
+      navigatorKey.currentState?.popUntil((route) {
+        return route.isFirst;
+      });
       _pageIndex = routePageMap[_conf.currentPage] ?? 0;
       _pageController.jumpToPage(_pageIndex);
       WakelockPlus.toggle(enable: _conf.keepScreenOn!);
@@ -169,6 +174,7 @@ class _LandscapeState extends State<Landscape> {
   Widget build(BuildContext context) {
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey,
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         primarySwatch: _conf.isDarkTheme! ? Colors.grey : Colors.purple,
         brightness: _conf.isDarkTheme! ? Brightness.dark : Brightness.light,
