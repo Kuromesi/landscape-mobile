@@ -69,7 +69,7 @@ jobs:
       - name: Set up environment
         run: |
           echo "PUB_DATE=$(date -R)" >> $GITHUB_ENV
-          echo "DOWNLOAD_URL$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[0].browser_download_url')" >> $GITHUB_ENV
+          echo "DOWNLOAD_URL=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r '.assets[0].browser_download_url')" >> $GITHUB_ENV
           echo "FILE_SIZE=$(curl -sI $DOWNLOAD_URL | grep -i Content-Length | awk '{print $2}' | tr -d '\r')" >> $GITHUB_ENV
           echo "APPCAST_URL=https://raw.githubusercontent.com/${{ github.repository }}/main/appcast.xml" >> $GITHUB_ENV
           echo "HEAD_COMMIT_MESSAGE=$(git show -s --format=%s)" >> $GITHUB_ENV
