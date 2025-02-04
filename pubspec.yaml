@@ -43,6 +43,8 @@ dependencies:
   shelf: ^1.4.1
   shelf_router: ^1.1.4
   provider: ^6.0.2
+  network_info_plus: ^6.1.1
+  flutter_logs: ^2.2.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

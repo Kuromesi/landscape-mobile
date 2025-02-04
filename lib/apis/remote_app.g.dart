@@ -13,10 +13,15 @@ RemoteAppState _$RemoteAppStateFromJson(Map<String, dynamic> json) =>
           ? null
           : ScrollTextConfiguration.fromJson(
               json['scrollTextConfig'] as Map<String, dynamic>),
+      gifConfig: json['gifConfig'] == null
+          ? null
+          : GifConfiguration.fromJson(
+              json['gifConfig'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$RemoteAppStateToJson(RemoteAppState instance) =>
     <String, dynamic>{
       'scrollTextConfig': instance.scrollTextConfig,
+      'gifConfig': instance.gifConfig,
       'mode': instance.mode,
     };

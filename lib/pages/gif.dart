@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:landscape/apis/gif.dart';
+import 'package:landscape/notifiers/notifier.dart';
 import 'package:landscape/utils/utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:landscape/constants/constants.dart';
 import 'package:landscape/players/players.dart';
 import 'package:landscape/apis/apis.dart';
 import 'package:json_annotation/json_annotation.dart';
-
 
 class GifPage extends StatefulWidget {
   @override
@@ -20,25 +20,24 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  final GifConfiguration _conf = GifConfiguration(
-    frameRate: 15.0,
-    filePaths: [],
-    loop: true,
-  );
+  GifConfiguration _conf = gifNotifier!.gifConfig;
 
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
   @override
   void initState() {
-    super.initState();
-    configDump[configGif] = exportState;
     _loadPreferences();
+    configDump[configGif] = exportState;
+    gifNotifier!.addListener(listener);
+    gifNotifier!.gifConfig = _conf;
+    super.initState();
   }
 
   @override
   void dispose() {
     configDump.remove(configGif);
     _savePreferences();
+    gifNotifier!.removeListener(listener);
     super.dispose();
   }
 
@@ -46,11 +45,20 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     return _conf;
   }
 
+  void listener() {
+    _conf = gifNotifier!.gifConfig;
+    setState(() {});
+  }
+
+  void rerender() {
+    gifNotifier!.updateGifConfig(_conf);
+  }
+
   Future<void> _loadPreferences() async {
     _conf.filePaths = await _prefs.getStringList("files") ?? [];
     _conf.frameRate = await _prefs.getDouble("frameRate") ?? 15.0;
     _conf.loop = await _prefs.getBool("loop") ?? true;
-    setState(() {});
+    gifNotifier!.updateGifConfig(_conf);
   }
 
   Future<void> _savePreferences() async {
@@ -91,7 +99,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
       },
       onDoubleTap: () {
         _conf.filePaths!.remove(path);
-        setState(() {});
+        rerender();
       },
       child: image,
     );
@@ -113,7 +121,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
             ),
             SizedBox(height: 16),
             FloatingActionButton(
-              heroTag: "settings",
+              heroTag: "gif_settings",
               onPressed: () => {_showSettingsDialog(context)},
               child: Icon(Icons.menu),
             ),
@@ -156,8 +164,8 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            MultiGifPlayer(gifs: _conf.filePaths!, frameRate: _conf.frameRate!.round()),
+        builder: (context) => MultiGifPlayer(
+            gifs: _conf.filePaths!, frameRate: _conf.frameRate!.round()),
       ),
     );
   }
@@ -189,7 +197,7 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         innerSetState(() {
                           _conf.frameRate = value;
                         });
-                        setState(() {});
+                        rerender();
                       },
                       onChangeEnd: (value) =>
                           _prefs.setDouble("frameRate", _conf.frameRate!),
@@ -223,9 +231,8 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
     files = files.where((element) => element.path != null).toList();
     List<String> paths = files.map((e) => e.path!).toList();
     paths.insertAll(0, _conf.filePaths!);
-    setState(() {
-      _conf.filePaths = paths;
-    });
+    _conf.filePaths = paths;
+    rerender();
     _savePreferences();
   }
 
@@ -263,9 +270,8 @@ class _GifPageState extends State<GifPage> with AutomaticKeepAliveClientMixin {
                         child: Text('Clear All'),
                         onPressed: () {
                           FilePicker.platform.clearTemporaryFiles();
-                          setState(() {
-                            _conf.filePaths = [];
-                          });
+                          _conf.filePaths = [];
+                          rerender();
                           _resetPreferences();
                           Navigator.of(context).pop();
                         },
