@@ -10,7 +10,7 @@ class ScrollTextPlayer extends StatelessWidget {
     required this.conf,
   });
 
-  final ScrollTextConfiguration conf;
+  final ScrollText conf;
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +27,8 @@ class ScrollTextPlayer extends StatelessWidget {
                         : TextDirection.ltr,
                     style: TextStyle(
                       fontSize: conf.fontSize ?? 80,
-                      color: conf.adaptiveColor == false
-                          ? Color(conf.fontColor ?? 0x00000000)
+                      color: conf.fontColor != Colors.black.toARGB32() && conf.fontColor != null
+                          ? Color(conf.fontColor!)
                           : null,
                     ),
                     velocity: Velocity(

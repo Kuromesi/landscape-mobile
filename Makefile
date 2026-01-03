@@ -3,3 +3,6 @@ generate:
 	
 release:
 	flutter build apk --release
+
+debug:
+	flutter build apk --debug

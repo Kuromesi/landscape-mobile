@@ -42,19 +42,25 @@ class _MultiGifPlayerState extends State<MultiGifPlayer> {
             }
           },
           onFinish: () {
-            if (DateTime.now().difference(_startTime) < _mustPlayAfter) {
-              // start controller
-              _gifControllerList[_currentGif].play();
-              return;
+          // Check if minimum play duration is met
+          if (DateTime.now().difference(_startTime) < _mustPlayAfter) {
+            _gifControllerList[_currentGif].play();
+            return;
+          }
+          
+          if (!mounted) return;
+          _next = true;
+
+          setState(() {
+            int oldIndex = _currentGif;
+            _currentGif = (_currentGif + 1) % _gifs.length;
+
+            // Fix: If the index is the same (only 1 GIF), manually reset and play
+            if (oldIndex == _currentGif) {
+              _gifControllerList[_currentGif].play();  // Start playing again
             }
-            if (!mounted) return;
-            _next = true;
-            setState(
-              () {
-                _currentGif = (_currentGif + 1) % _gifs.length;
-              },
-            );
-          },
+          });
+        },
           loop: false,
         );
         _gifs.add(

@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:convert'; // Added for jsonEncode
 import 'package:flutter/material.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:flutter_logs/flutter_logs.dart';
@@ -6,7 +8,6 @@ import 'package:landscape/app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 String _logTag = "NetworkScanner";
-
 RemotePairer? _pairer;
 
 RemotePairer remotePairer() {
@@ -17,161 +18,180 @@ RemotePairer remotePairer() {
 class RemotePairer {
   bool _paired = false;
   bool _remoteControlEnabled = false;
+  bool _isScanning = false;
   String? _pairedIp;
   int? _pairedPort;
+
+  // Timer for the 10s heartbeat
+  Timer? _heartbeatTimer;
 
   List<Map<String, dynamic>> _availableDevices = [];
   final SharedPreferencesAsync _prefs = SharedPreferencesAsync();
 
-  get remoteControlEnabled => _remoteControlEnabled;
-  get paired => _paired;
-  get pairedIp => _pairedIp;
-  get pairedPort => _pairedPort;
-  get availableDevices => _availableDevices;
+  // Getters
+  bool get remoteControlEnabled => _remoteControlEnabled;
+  bool get paired => _paired;
+  bool get isScanning => _isScanning;
+  String? get pairedIp => _pairedIp;
+  int? get pairedPort => _pairedPort;
+  List<Map<String, dynamic>> get availableDevices => _availableDevices;
 
-  // construct method of the class
   RemotePairer() {
     _loadPreferences();
   }
 
   Future<void> _loadPreferences() async {
-    List<String>? devices = await _prefs.getStringList('availableDevices');
+    final List<String>? devices = await _prefs.getStringList('availableDevices');
     if (devices != null) {
-      for (var device in devices) {
-        List<String> parts = device.split(':');
-        if (parts.length == 2) {
-          _availableDevices.add({'ip': parts[0], 'port': int.parse(parts[1])});
+      _availableDevices = devices.map((d) {
+        final parts = d.split(':');
+        return {'ip': parts[0], 'port': int.parse(parts[1])};
+      }).toList();
+    }
+  }
+
+  /// Heartbeat Logic: Sends POST /ping every 10 seconds
+  void _startHeartbeat() {
+    _stopHeartbeat(); // Ensure no duplicate timers
+    void checkAndPing() {
+      if (_remoteControlEnabled && _paired && _pairedIp != null) {
+        _sendPing();
+      } else {
+        _stopHeartbeat();
+      }
+    }
+    checkAndPing();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      checkAndPing();
+    });
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
+  Future<void> _sendPing() async {
+    HttpClient? client;
+    try {
+      final String? myIp = await NetworkInfo().getWifiIP();
+      client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+
+      final request = await client.post(_pairedIp!, _pairedPort!, '/ping');
+      
+      // Set headers and body
+      request.headers.contentType = ContentType.json;
+      final Map<String, dynamic> body = {
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'ip': myIp ?? 'unknown',
+      };
+      
+      request.write(jsonEncode(body));
+      
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        FlutterLogs.logWarn(_logTag, "Ping", "Server returned ${response.statusCode}");
+      }
+    } catch (e) {
+      FlutterLogs.logError(_logTag, "PingFailed", e.toString());
+    } finally {
+      client?.close();
+    }
+  }
+
+  // --- Scanning Logic ---
+
+  Future<void> autoPairScan([int? targetPort]) async {
+    if (_isScanning) return;
+    _isScanning = true;
+
+    try {
+      final String? wifiIP = await NetworkInfo().getWifiIP();
+      final String? wifiSubmask = await NetworkInfo().getWifiSubmask();
+
+      if (wifiIP == null || wifiSubmask == null) return;
+
+      final List<String> ips = _calculateSubnetIPs(wifiIP, wifiSubmask);
+      targetPort ??= 8080;
+
+      const int batchSize = 30;
+      for (int i = 0; i < ips.length; i += batchSize) {
+        final end = (i + batchSize < ips.length) ? i + batchSize : ips.length;
+        final batch = ips.sublist(i, end);
+
+        final results = await Future.wait(
+          batch.map((ip) => isDeviceAvailable(ip, targetPort!, silent: true))
+        );
+
+        for (int j = 0; j < results.length; j++) {
+          if (results[j]) addDevice(batch[j], targetPort);
         }
       }
-    }
-  }
-
-  Future<List<String>> autoPair() async {
-    List<String> devices = [];
-    try {
-      List<String>? ipAddresses = await getSubnetIPs();
-      List<String>? tmp = await filterAvailableDevices(ipAddresses!, 8080);
-      if (tmp != null) {
-        devices = tmp;
-      }
     } catch (e) {
-      FlutterLogs.logError(_logTag, "", e.toString());
+      FlutterLogs.logError(_logTag, "autoPair", e.toString());
+    } finally {
+      _isScanning = false;
     }
-    return devices;
   }
 
-  Future<List<String>?> getSubnetIPs() async {
-    NetworkInfo info = NetworkInfo();
-    String? wifiIP = await info.getWifiIP();
-    if (wifiIP == null) {
-      Exception("failed to get wifi ip");
-    }
+  List<String> _calculateSubnetIPs(String ip, String submask) {
+    final ipParts = ip.split('.').map(int.parse).toList();
+    final maskParts = submask.split('.').map(int.parse).toList();
+    final int ipInt = (ipParts[0] << 24) | (ipParts[1] << 16) | (ipParts[2] << 8) | ipParts[3];
+    final int maskInt = (maskParts[0] << 24) | (maskParts[1] << 16) | (maskParts[2] << 8) | maskParts[3];
+    final int networkInt = ipInt & maskInt;
+    final int broadcastInt = networkInt | (~maskInt & 0xffffffff);
 
-    String? wifiSubmask = await info.getWifiSubmask();
-    if (wifiSubmask == null) {
-      Exception("failed to get wifi submask");
-    }
-    List<String> ipAddresses = calculateSubnetIPs(wifiIP!, wifiSubmask!);
-    return ipAddresses;
+    return List.generate(broadcastInt - networkInt - 1, (i) {
+      final addr = networkInt + i + 1;
+      return "${(addr >> 24) & 0xFF}.${(addr >> 16) & 0xFF}.${(addr >> 8) & 0xFF}.${addr & 0xFF}";
+    });
   }
 
-  List<String> calculateSubnetIPs(String ip, String submask) {
-    List<int> ipParts = ip.split('.').map(int.parse).toList();
-    List<int> maskParts = submask.split('.').map(int.parse).toList();
-
-    int ipInt = (ipParts[0] << 24) |
-        (ipParts[1] << 16) |
-        (ipParts[2] << 8) |
-        ipParts[3];
-    int maskInt = (maskParts[0] << 24) |
-        (maskParts[1] << 16) |
-        (maskParts[2] << 8) |
-        maskParts[3];
-
-    int networkInt = ipInt & maskInt;
-    int broadcastInt = networkInt | (~maskInt);
-
-    List<String> ipAddresses = [];
-    for (int i = networkInt + 1; i < broadcastInt; i++) {
-      List<int> parts = [
-        (i >> 24) & 0xFF,
-        (i >> 16) & 0xFF,
-        (i >> 8) & 0xFF,
-        i & 0xFF
-      ];
-      ipAddresses.add(parts.join('.'));
-    }
-
-    return ipAddresses;
-  }
-
-  Future<List<String>?> filterAvailableDevices(
-      List<String> ips, int port) async {
-    List<String> devices = [];
-    for (var ip in ips) {
-      if (await isDeviceAvailable(ip, port)) {
-        devices.add(ip);
-      }
-    }
-    return devices;
-  }
-
-  Future<bool> isDeviceAvailable(String ip, int port) async {
+  Future<bool> isDeviceAvailable(String ip, int port, {bool silent = false}) async {
+    HttpClient? client;
     try {
-      HttpClient client = HttpClient();
-      client.connectionTimeout = Duration(seconds: 1);
-      HttpClientRequest request = await client.get(ip, port, '/livez');
-      HttpClientResponse response = await request.close();
-      if (response.statusCode == 200) {
-        return true;
-      }
+      client = HttpClient();
+      client.connectionTimeout = const Duration(milliseconds: 800);
+      final request = await client.get(ip, port, '/livez');
+      final response = await request.close();
+      return response.statusCode == 200;
     } catch (e) {
-      FlutterLogs.logError(_logTag, "", e.toString());
+      return false;
+    } finally {
+      client?.close();
     }
-    scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text('Device not available, $ip:$port'),
-      ),
-    );
-    return false;
   }
+
+  // --- Device Management ---
 
   void addDevice(String ip, int port) {
-    if (!_availableDevices
-        .any((element) => element['ip'] == ip && element['port'] == port)) {
+    if (!_availableDevices.any((d) => d['ip'] == ip && d['port'] == port)) {
       _availableDevices.add({'ip': ip, 'port': port});
+      _prefs.setStringList('availableDevices', _availableDevices.map((e) => '${e['ip']}:${e['port']}').toList());
     }
-    _prefs.setStringList('availableDevices',
-        _availableDevices.map((e) => '${e['ip']}:${e['port']}').toList());
   }
 
   void removeDevice(String ip, int port) {
-    if (_pairedIp == ip && _pairedPort == port) {
-      unpair();
-      _remoteControlEnabled = false;
-    }
-    _availableDevices.removeWhere(
-        (element) => element['ip'] == ip && element['port'] == port);
-    _prefs.setStringList('availableDevices',
+    if (_pairedIp == ip && _pairedPort == port) unpair();
+    _availableDevices.removeWhere((d) => d['ip'] == ip && d['port'] == port);
+    _prefs.setStringList('availableDevices', 
         _availableDevices.map((e) => '${e['ip']}:${e['port']}').toList());
   }
 
   Future<bool> pair(String ip, int port) async {
-    if (!await isDeviceAvailable(ip, port)) {
-      return false;
-    }
-    if (!_availableDevices
-        .any((element) => element['ip'] == ip && element['port'] == port)) {
-      _availableDevices.add({'ip': ip, 'port': port});
-    }
+    if (!await isDeviceAvailable(ip, port)) return false;
+    addDevice(ip, port);
     _paired = true;
     _pairedIp = ip;
     _pairedPort = port;
+    enableRemoteControl(); // This will start the heartbeat
     return true;
   }
 
   void unpair() {
-    _remoteControlEnabled = false;
+    disableRemoteControl(); // This will stop the heartbeat
     _paired = false;
     _pairedIp = null;
     _pairedPort = null;
@@ -179,9 +199,11 @@ class RemotePairer {
 
   void enableRemoteControl() {
     _remoteControlEnabled = true;
+    _startHeartbeat();
   }
 
   void disableRemoteControl() {
     _remoteControlEnabled = false;
+    _stopHeartbeat();
   }
 }

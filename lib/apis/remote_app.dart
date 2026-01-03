@@ -7,7 +7,7 @@ part 'remote_app.g.dart';
 @JsonSerializable()
 class RemoteAppState extends JsonSerializable {
   ScrollTextConfiguration? scrollTextConfig;
-  GifConfiguration ? gifConfig;
+  GifConfiguration? gifConfig;
   String mode;
 
   RemoteAppState({required this.mode, this.scrollTextConfig, this.gifConfig});
@@ -15,5 +15,6 @@ class RemoteAppState extends JsonSerializable {
   factory RemoteAppState.fromJson(Map<String, dynamic> json) =>
       _$RemoteAppStateFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$RemoteAppStateToJson(this);
 }
