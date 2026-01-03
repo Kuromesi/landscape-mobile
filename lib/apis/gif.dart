@@ -15,5 +15,6 @@ class GifConfiguration extends JsonSerializable {
   factory GifConfiguration.fromJson(Map<String, dynamic> json) =>
       _$GifConfigurationFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$GifConfigurationToJson(this);
 }

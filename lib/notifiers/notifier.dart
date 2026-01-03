@@ -7,38 +7,33 @@ import 'dart:convert';
 import 'package:landscape/utils/network_scanner.dart';
 import 'package:landscape/app.dart';
 
-bool remoteControlEnabled = false;
-
-RemoteAppNotifier? notifier;
-
-AppNotifier? appNotifier;
-
-ScrollTextNotifier? scrollTextNotifier;
-
-GifNotifier? gifNotifier;
-
 class RemoteAppNotifier extends ChangeNotifier {
-  RemoteAppState conf = RemoteAppState(mode: 'scrollText');
+  RemoteAppState _conf = RemoteAppState(mode: 'scrollText');
 
-  RemoteAppState get configuration => conf;
+  RemoteAppState get configuration => _conf;
+
+  set configuration(RemoteAppState newConfig) {
+    _conf = newConfig;
+    notifyListeners();
+  }
 
   void updateConfiguration(RemoteAppState newConfig) {
-    conf = newConfig;
+    _conf = newConfig;
     notifyListeners();
   }
 
   void updateGifConfiguration(GifConfiguration newConfig) {
-    conf.gifConfig = newConfig;
+    _conf.gifConfig = newConfig;
     notifyListeners();
   }
 
   void updateScrollTextConfiguration(ScrollTextConfiguration newConfig) {
-    conf.scrollTextConfig = newConfig;
+    _conf.scrollTextConfig = newConfig;
     notifyListeners();
   }
 
   void updateMode(String newMode) {
-    conf.mode = newMode;
+    _conf.mode = newMode;
     notifyListeners();
   }
 }
@@ -53,20 +48,14 @@ class AppNotifier extends ChangeNotifier {
   }
 
   void updateAppState(AppState newState) {
+    newState.underControl = _appState.underControl;
     _appState = newState;
     notifyListeners();
   }
 }
 
 class ScrollTextNotifier extends ChangeNotifier {
-  ScrollTextConfiguration _scrollTextConfig = ScrollTextConfiguration(
-    text: defaultScrollText,
-    direction: "rtl",
-    fontSize: 80,
-    scrollSpeed: 1.0,
-    fontColor: 0x00000000,
-    adaptiveColor: true,
-  );
+  ScrollTextConfiguration _scrollTextConfig = ScrollTextConfiguration();
 
   ScrollTextConfiguration get scrollTextConfig => _scrollTextConfig;
 
@@ -99,8 +88,6 @@ class GifNotifier extends ChangeNotifier {
   }
 }
 
-RemoteNotifier remoteNotifier = RemoteNotifier();
-
 class RemoteNotifier {
   final String _logTag = "RemoteNotifier";
   final RemotePairer _pairer = remotePairer();
@@ -118,19 +105,36 @@ class RemoteNotifier {
         content: Text('Something wrong with remote device'),
       ),
     );
-    return _pairer.isDeviceAvailable(_pairer.pairedIp, _pairer.pairedPort);
+    final ip = _pairer.pairedIp;
+    final port = _pairer.pairedPort;
+    if (ip == null || port == null) {
+      return false;
+    }
+    return _pairer.isDeviceAvailable(ip, port);
   }
 
   Future<void> updateAppState(AppState newState) async {
+    final ip = _pairer.pairedIp;
+    final port = _pairer.pairedPort;
+    if (ip == null || port == null) {
+      FlutterLogs.logError(_logTag, "", "No paired device available");
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No paired device available, please pair a remote device first'),
+        ),
+      );
+      return;
+    }
+
     try {
-      HttpClient client = HttpClient();
-      client.connectionTimeout = Duration(seconds: 1);
-      HttpClientRequest request = await client.post(
-          _pairer.pairedIp, _pairer.pairedPort, '/configure/app/full');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 1);
+      final request = await client.post(ip, port, '/configure/app/full');
       _decorateRequest(request, newState.toJson());
-      HttpClientResponse response = await request.close();
+      final response = await request.close();
       if (response.statusCode != 200) {
-        throw Exception("failed to update app state");
+        throw Exception("failed to update app state with status: ${response.statusCode}");
       }
     } catch (e) {
       FlutterLogs.logError(_logTag, "", e.toString());
@@ -144,15 +148,27 @@ class RemoteNotifier {
   }
 
   Future<void> updateGifConfig(GifConfiguration newConfig) async {
+    final ip = _pairer.pairedIp;
+    final port = _pairer.pairedPort;
+    if (ip == null || port == null) {
+      FlutterLogs.logError(_logTag, "", "No paired device available");
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No paired device available, please pair a remote device first'),
+        ),
+      );
+      return;
+    }
+
     try {
-      HttpClient client = HttpClient();
-      client.connectionTimeout = Duration(seconds: 1);
-      HttpClientRequest request = await client.post(
-          _pairer.pairedIp, _pairer.pairedPort, '/configure/gif-player/full');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 1);
+      final request = await client.post(ip, port, '/configure/gif-player/full');
       _decorateRequest(request, newConfig.toJson());
-      HttpClientResponse response = await request.close();
+      final response = await request.close();
       if (response.statusCode != 200) {
-        throw Exception("failed to update gif config");
+        throw Exception("failed to update gif config with status: ${response.statusCode}");
       }
     } catch (e) {
       FlutterLogs.logError(_logTag, "", e.toString());
@@ -166,15 +182,27 @@ class RemoteNotifier {
   }
 
   Future<void> updateScrollTextConfig(ScrollTextConfiguration newConfig) async {
+    final ip = _pairer.pairedIp;
+    final port = _pairer.pairedPort;
+    if (ip == null || port == null) {
+      FlutterLogs.logError(_logTag, "", "No paired device available");
+      scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text(
+              'No paired device available, please pair a remote device first'),
+        ),
+      );
+      return;
+    }
+
     try {
-      HttpClient client = HttpClient();
-      client.connectionTimeout = Duration(seconds: 1);
-      HttpClientRequest request = await client.post(
-          _pairer.pairedIp, _pairer.pairedPort, '/configure/scroll-text/full');
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 1);
+      final request = await client.post(ip, port, '/configure/scroll-text/full');
       _decorateRequest(request, newConfig.toJson());
-      HttpClientResponse response = await request.close();
+      final response = await request.close();
       if (response.statusCode != 200) {
-        throw Exception("failed to update scroll text config");
+        throw Exception("failed to update scroll text config with status: ${response.statusCode}");
       }
     } catch (e) {
       FlutterLogs.logError(_logTag, "", e.toString());
@@ -187,3 +215,12 @@ class RemoteNotifier {
     }
   }
 }
+
+// Global notifier instances that will be accessed by the HTTP server
+// These are initialized in main.dart via the Provider pattern
+RemoteAppNotifier? notifier;
+AppNotifier? appNotifier;
+ScrollTextNotifier? scrollTextNotifier;
+GifNotifier? gifNotifier;
+
+RemoteNotifier remoteNotifier = RemoteNotifier();

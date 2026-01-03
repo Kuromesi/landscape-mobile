@@ -8,11 +8,16 @@ class AppState extends JsonSerializable {
   bool? keepScreenOn;
   bool? isDarkTheme;
 
-  AppState(
-      {this.currentPage, this.keepScreenOn, this.isDarkTheme});
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  bool? underControl;
+
+  AppState({this.currentPage, this.keepScreenOn, this.isDarkTheme, this.underControl}) {
+    underControl = false;
+  }
 
   factory AppState.fromJson(Map<String, dynamic> json) =>
       _$AppStateFromJson(json);
 
+  @override
   Map<String, dynamic> toJson() => _$AppStateToJson(this);
 }
